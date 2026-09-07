@@ -9,7 +9,7 @@ const LARAVEL_URL = import.meta.env.PROD && isLocalApiUrl
   ? productionApiUrl
   : configuredApiUrl || productionApiUrl;
 const V1_URL = `${LARAVEL_URL}/api/v1`;
-axios.defaults.timeout = 15000;
+axios.defaults.timeout = 60000;
 
 export const api = {
   async sendMessage(phoneNumber: string, message: string, sessionId?: string): Promise<ApiResponse> {
