@@ -16,6 +16,13 @@ class EnsureCors
         $allowedPatterns = (array) ($config['allowed_origins_patterns'] ?? []);
         $allowed = in_array($origin, $allowedOrigins, true);
 
+        // Keep Vercel preview deployments working even when a previous config cache
+        // is still present during a rolling Render deployment.
+        $originHost = strtolower((string) parse_url($origin, PHP_URL_HOST));
+        if (preg_match('/^crm-whatsapp-epsa(?:-[a-z0-9-]+)?\\.vercel\\.app$/', $originHost) === 1) {
+            $allowed = true;
+        }
+
         foreach ($allowedPatterns as $pattern) {
             if ($origin !== '' && preg_match($pattern, $origin) === 1) {
                 $allowed = true;
