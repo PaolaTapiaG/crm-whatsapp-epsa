@@ -4,7 +4,7 @@ return [
     'paths' => ['api/*', 'sanctum/csrf-cookie'],
     'allowed_methods' => ['*'],
     'allowed_origins' => [
-        env('FRONTEND_URL', ''),
+        'https://crm-whatsapp-epsa.vercel.app',
         'http://localhost:5173',
         'http://127.0.0.1:5173',
         'http://localhost:3001',
