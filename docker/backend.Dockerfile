@@ -10,7 +10,13 @@ RUN apt-get update \
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 COPY backend-laravel/composer.json backend-laravel/composer.lock ./
-RUN composer install --no-dev --no-interaction --prefer-dist --no-scripts
+# GitHub occasionally returns a transient 504 for package archives on free builds.
+# Retry the archive download first, then use git as a reliable fallback.
+ENV COMPOSER_MAX_PARALLEL_HTTP=4 \
+    COMPOSER_PROCESS_TIMEOUT=900
+RUN composer install --no-dev --no-interaction --prefer-dist --no-scripts \
+    || (sleep 5 && composer install --no-dev --no-interaction --prefer-dist --no-scripts) \
+    || (sleep 15 && composer install --no-dev --no-interaction --prefer-source --no-scripts)
 
 COPY backend-laravel/ ./
 
