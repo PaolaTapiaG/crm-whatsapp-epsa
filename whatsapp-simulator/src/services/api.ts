@@ -4,6 +4,7 @@ import { ApiResponse, DashboardIaStatus, DashboardIntent, DashboardMessage, Dash
 
 const LARAVEL_URL = import.meta.env.VITE_LARAVEL_URL || 'https://crm-whatsapp-epsa.onrender.com';
 const V1_URL = `${LARAVEL_URL}/api/v1`;
+axios.defaults.timeout = 15000;
 
 export const api = {
   async sendMessage(phoneNumber: string, message: string, sessionId?: string): Promise<ApiResponse> {

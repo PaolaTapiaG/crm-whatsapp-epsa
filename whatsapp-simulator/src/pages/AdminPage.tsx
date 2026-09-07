@@ -22,23 +22,21 @@ const AdminPage: React.FC = () => {
 
   useEffect(() => {
     const loadData = async () => {
-      try {
-        const [nextStats, nextMessages, nextIntents, nextIaStatus] = await Promise.all([
+      const results = await Promise.allSettled([
           api.getDashboardStats(),
           api.getRecentDashboardMessages(),
           api.getTopIntents(),
           api.getIaStatus(),
-        ]);
-        setStats(nextStats);
-        setMessages(nextMessages);
-        setIntents(nextIntents);
-        setIaStatus(nextIaStatus);
-        setError(null);
-      } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : 'No se pudo cargar el dashboard');
-      } finally {
-        setLoading(false);
-      }
+      ]);
+
+      const [statsResult, messagesResult, intentsResult, iaResult] = results;
+      const failures = results.filter((result) => result.status === 'rejected');
+      if (statsResult.status === 'fulfilled') setStats(statsResult.value);
+      if (messagesResult.status === 'fulfilled') setMessages(messagesResult.value);
+      if (intentsResult.status === 'fulfilled') setIntents(intentsResult.value);
+      if (iaResult.status === 'fulfilled') setIaStatus(iaResult.value);
+      setError(failures.length ? 'Algunos datos no respondieron. Render puede estar despertando.' : null);
+      setLoading(false);
     };
 
     loadData();
