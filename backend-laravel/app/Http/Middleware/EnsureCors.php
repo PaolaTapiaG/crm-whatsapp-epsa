@@ -11,8 +11,17 @@ class EnsureCors
     public function handle(Request $request, Closure $next): Response
     {
         $origin = (string) $request->headers->get('Origin');
-        $allowed = $origin === 'https://crm-whatsapp-epsa.vercel.app'
-            || (bool) preg_match('/^https:\/\/crm-whatsapp-epsa(?:-[a-z0-9-]+)*\.vercel\.app$/', $origin);
+        $config = (array) config('cors', []);
+        $allowedOrigins = (array) ($config['allowed_origins'] ?? []);
+        $allowedPatterns = (array) ($config['allowed_origins_patterns'] ?? []);
+        $allowed = in_array($origin, $allowedOrigins, true);
+
+        foreach ($allowedPatterns as $pattern) {
+            if ($origin !== '' && preg_match($pattern, $origin) === 1) {
+                $allowed = true;
+                break;
+            }
+        }
 
         if ($request->isMethod('OPTIONS')) {
             $response = response('', 204);
@@ -22,9 +31,10 @@ class EnsureCors
 
         if ($allowed) {
             $response->headers->set('Access-Control-Allow-Origin', $origin);
-            $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-            $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
-            $response->headers->set('Access-Control-Max-Age', '86400');
+            $response->headers->set('Access-Control-Allow-Methods', implode(', ', (array) ($config['allowed_methods'] ?? ['*'])));
+            $response->headers->set('Access-Control-Allow-Headers', implode(', ', (array) ($config['allowed_headers'] ?? ['*'])));
+            $response->headers->set('Access-Control-Expose-Headers', implode(', ', (array) ($config['exposed_headers'] ?? [])));
+            $response->headers->set('Access-Control-Max-Age', (string) ($config['max_age'] ?? 0));
             $response->headers->set('Vary', 'Origin');
         }
 

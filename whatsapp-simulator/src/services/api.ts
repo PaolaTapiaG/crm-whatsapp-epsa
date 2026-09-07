@@ -2,7 +2,12 @@
 import axios from 'axios';
 import { ApiResponse, DashboardIaStatus, DashboardIntent, DashboardMessage, DashboardStats, HealthStatus } from '../types';
 
-const LARAVEL_URL = import.meta.env.VITE_LARAVEL_URL || 'https://crm-whatsapp-epsa.onrender.com';
+const productionApiUrl = 'https://crm-whatsapp-epsa.onrender.com';
+const configuredApiUrl = String(import.meta.env.VITE_LARAVEL_URL || '').trim().replace(/\/$/, '');
+const isLocalApiUrl = /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredApiUrl);
+const LARAVEL_URL = import.meta.env.PROD && isLocalApiUrl
+  ? productionApiUrl
+  : configuredApiUrl || productionApiUrl;
 const V1_URL = `${LARAVEL_URL}/api/v1`;
 axios.defaults.timeout = 15000;
 
