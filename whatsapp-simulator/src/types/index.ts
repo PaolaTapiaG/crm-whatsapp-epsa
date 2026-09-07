@@ -80,7 +80,9 @@ export interface DashboardIntent {
 }
 
 export interface DashboardIaStatus {
+  provider_status: 'connected' | 'disconnected' | 'disabled';
   ollama_status: 'connected' | 'disconnected';
+  ia_provider: string;
   total_messages_analyzed: number;
   average_confidence: number;
 }

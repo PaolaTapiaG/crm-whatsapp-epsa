@@ -306,7 +306,10 @@ class WhatsAppController extends Controller
                 'access_token' => config('whatsapp.access_token') ? 'configured' : 'not_configured',
                 'webhook_configured' => config('whatsapp.verify_token') ? true : false,
                 'ia_enabled' => filter_var(env('IA_ENABLED', false), FILTER_VALIDATE_BOOL),
-                'ia_model' => env('OLLAMA_MODEL', 'qwen3:8b'),
+                'ia_provider' => env('AI_PROVIDER', 'groq'),
+                'ia_model' => env('AI_PROVIDER') === 'groq'
+                    ? env('GROQ_MODEL', 'llama-3.1-8b-instant')
+                    : env('OLLAMA_MODEL', 'qwen3:8b'),
             ]
         ]);
     }

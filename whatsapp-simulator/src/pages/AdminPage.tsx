@@ -114,7 +114,7 @@ const AdminPage: React.FC = () => {
         </section>
 
         <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="border border-slate-800 bg-slate-900 p-5"><p className="text-xs uppercase tracking-wider text-slate-500">Ollama</p><p className={`mt-2 text-lg font-semibold ${iaStatus?.ollama_status === 'connected' ? 'text-emerald-400' : 'text-rose-400'}`}>{iaStatus?.ollama_status === 'connected' ? 'Conectado' : 'Desconectado'}</p></div>
+          <div className="border border-slate-800 bg-slate-900 p-5"><p className="text-xs uppercase tracking-wider text-slate-500">Proveedor IA: {iaStatus?.ia_provider || 'groq'}</p><p className={`mt-2 text-lg font-semibold ${iaStatus?.provider_status === 'connected' ? 'text-emerald-400' : 'text-rose-400'}`}>{iaStatus?.provider_status === 'connected' ? 'Conectado' : iaStatus?.provider_status === 'disabled' ? 'Desactivado' : 'Desconectado'}</p></div>
           <div className="border border-slate-800 bg-slate-900 p-5"><p className="text-xs uppercase tracking-wider text-slate-500">Confianza promedio</p><p className="mt-2 text-lg font-semibold">{Math.round((iaStatus?.average_confidence || 0) * 100)}%</p></div>
           <div className="border border-slate-800 bg-slate-900 p-5"><p className="text-xs uppercase tracking-wider text-slate-500">Tickets resueltos</p><p className="mt-2 text-lg font-semibold">{stats.resolved_tickets}</p></div>
         </section>

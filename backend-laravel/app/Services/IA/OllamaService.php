@@ -9,11 +9,13 @@ use Illuminate\Support\Facades\Log;
 
 class OllamaService
 {
+    protected string $provider;
     protected $baseUrl;
     protected $model;
 
     public function __construct()
     {
+        $this->provider = strtolower((string) env('AI_PROVIDER', 'groq'));
         $this->baseUrl = env('OLLAMA_URL', 'http://localhost:11434');
         $this->model = env('OLLAMA_MODEL', 'qwen3:8b');
     }
@@ -35,6 +37,10 @@ class OllamaService
 
     private function requestOllama(string $prompt, array $context = [], bool $json = true): ?array
     {
+        if ($this->provider === 'groq') {
+            return $this->requestGroq($prompt, $context, $json);
+        }
+
         try {
             $payload = [
                 'model' => $this->model,
@@ -68,6 +74,49 @@ class OllamaService
             Log::error('Error conectando con Ollama: ' . $e->getMessage());
             return null;
         }
+    }
+
+    private function requestGroq(string $prompt, array $context = [], bool $json = true): ?array
+    {
+        try {
+            $messages = array_map(function (array $item): array {
+                return [
+                    'role' => ($item['role'] ?? '') === 'asistente' ? 'assistant' : 'user',
+                    'content' => (string) ($item['content'] ?? ''),
+                ];
+            }, $context);
+            array_unshift($messages, [
+                'role' => 'system',
+                'content' => 'Eres un asistente breve y profesional de una empresa de agua potable en Bolivia. No inventes datos.',
+            ]);
+            $messages[] = ['role' => 'user', 'content' => $prompt];
+
+            $payload = [
+                'model' => env('GROQ_MODEL', 'llama-3.1-8b-instant'),
+                'messages' => $messages,
+                'temperature' => $json ? 0.2 : 0.65,
+                'max_tokens' => 180,
+            ];
+            if ($json) {
+                $payload['response_format'] = ['type' => 'json_object'];
+            }
+
+            $response = Http::connectTimeout(3)
+                ->timeout((int) env('GROQ_TIMEOUT', 15))
+                ->withToken((string) env('GROQ_API_KEY'))
+                ->acceptJson()
+                ->post('https://api.groq.com/openai/v1/chat/completions', $payload);
+
+            if ($response->successful()) {
+                return ['response' => $response->json('choices.0.message.content')];
+            }
+
+            Log::error('Error en Groq', ['status' => $response->status(), 'body' => $response->body()]);
+        } catch (\Throwable $e) {
+            Log::error('Error conectando con Groq: ' . $e->getMessage());
+        }
+
+        return null;
     }
 
     public function analyzeWithExamples(string $message): array
