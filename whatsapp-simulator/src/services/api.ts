@@ -2,7 +2,7 @@
 import axios from 'axios';
 import { ApiResponse, DashboardIaStatus, DashboardIntent, DashboardMessage, DashboardStats, HealthStatus } from '../types';
 
-const LARAVEL_URL = import.meta.env.VITE_LARAVEL_URL || 'http://localhost:8001';
+const LARAVEL_URL = import.meta.env.VITE_LARAVEL_URL || 'https://crm-whatsapp-epsa.onrender.com';
 const V1_URL = `${LARAVEL_URL}/api/v1`;
 
 export const api = {
