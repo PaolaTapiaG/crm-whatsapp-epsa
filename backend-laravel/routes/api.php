@@ -10,12 +10,29 @@ use App\Http\Controllers\Api\V1\TicketController;
 use App\Http\Controllers\Api\V1\IntentController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\OperatorController;
+use Illuminate\Http\Request;
 
 /*
 |--------------------------------------------------------------------------
 | API Routes
 |--------------------------------------------------------------------------
 */
+
+Route::options('{any}', function (Request $request) {
+    $origin = (string) $request->headers->get('Origin');
+    $allowed = preg_match('/^https:\/\/crm-whatsapp-epsa(?:-[a-z0-9-]+)?\.vercel\.app$/', $origin) === 1;
+    $response = response('', 204);
+
+    if ($allowed) {
+        $response->headers->set('Access-Control-Allow-Origin', $origin);
+        $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+        $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-CSRF-TOKEN, Accept');
+        $response->headers->set('Access-Control-Max-Age', '86400');
+        $response->headers->set('Vary', 'Origin');
+    }
+
+    return $response;
+})->where('any', '.*');
 
 Route::prefix('v1')->group(function () {
     
