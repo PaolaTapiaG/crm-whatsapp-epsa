@@ -80,16 +80,25 @@ class DashboardController extends Controller
     {
         if (!filter_var(env('IA_ENABLED', false), FILTER_VALIDATE_BOOL)) {
             return response()->json(['success' => true, 'data' => [
+                'ia_status' => 'disabled',
+                'provider_status' => 'disabled',
                 'ollama_status' => 'disabled',
+                'ia_provider' => env('AI_PROVIDER', 'groq'),
                 'total_messages_analyzed' => Message::whereNotNull('intent')->count(),
                 'average_confidence' => round((float) Message::whereNotNull('confidence')->avg('confidence'), 2),
             ]]);
         }
 
-        $ollama = Http::timeout(2)->get('http://127.0.0.1:11434/api/tags')->successful();
+        $provider = strtolower((string) env('AI_PROVIDER', 'groq'));
+        $connected = $provider === 'groq'
+            ? Http::connectTimeout(1)->timeout(2)->withToken((string) env('GROQ_API_KEY'))->get('https://api.groq.com/openai/v1/models')->successful()
+            : Http::timeout(2)->get('http://127.0.0.1:11434/api/tags')->successful();
 
         return response()->json(['success' => true, 'data' => [
-            'ollama_status' => $ollama ? 'connected' : 'disconnected',
+            'ia_status' => $connected ? 'connected' : 'disconnected',
+            'provider_status' => $connected ? 'connected' : 'disconnected',
+            'ollama_status' => $connected ? 'connected' : 'disconnected',
+            'ia_provider' => $provider,
             'total_messages_analyzed' => Message::whereNotNull('intent')->count(),
             'average_confidence' => round((float) Message::whereNotNull('confidence')->avg('confidence'), 2),
         ]]);
