@@ -1,0 +1,10 @@
+{
+  "buildCommand": "npm --prefix whatsapp-simulator install && npm --prefix whatsapp-simulator run build",
+  "outputDirectory": "whatsapp-simulator/dist",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
