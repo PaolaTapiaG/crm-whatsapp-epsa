@@ -78,6 +78,14 @@ class DashboardController extends Controller
 
     public function iaStatus()
     {
+        if (!filter_var(env('IA_ENABLED', false), FILTER_VALIDATE_BOOL)) {
+            return response()->json(['success' => true, 'data' => [
+                'ollama_status' => 'disabled',
+                'total_messages_analyzed' => Message::whereNotNull('intent')->count(),
+                'average_confidence' => round((float) Message::whereNotNull('confidence')->avg('confidence'), 2),
+            ]]);
+        }
+
         $ollama = Http::timeout(2)->get('http://127.0.0.1:11434/api/tags')->successful();
 
         return response()->json(['success' => true, 'data' => [
