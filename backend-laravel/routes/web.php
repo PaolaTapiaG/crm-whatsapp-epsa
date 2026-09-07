@@ -4,7 +4,11 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
 Route::get('/', function () {
-    return view('welcome');
+    return response()->json([
+        'service' => config('app.name'),
+        'status' => 'ok',
+        'api' => '/api/v1',
+    ]);
 });
 
 Route::get('/media/{path}', function (string $path) {
