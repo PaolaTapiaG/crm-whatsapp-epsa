@@ -1,0 +1,8 @@
+{"prompt":"Usuario: Hola\nAsistente:","completion":"saludo"}
+{"prompt":"Usuario: Quiero saber cuánto debo de agua\nAsistente:","completion":"consultar_saldo"}
+{"prompt":"Usuario: Necesito pagar mi factura\nAsistente:","completion":"pagar_deuda"}
+{"prompt":"Usuario: ¿A qué hora atienden?\nAsistente:","completion":"horarios"}
+{"prompt":"Usuario: Hay una rotura en mi calle\nAsistente:","completion":"rotura_caneria"}
+{"prompt":"Usuario: Tengo una fuga en el baño\nAsistente:","completion":"fuga_casa"}
+{"prompt":"Usuario: No tengo agua en mi casa\nAsistente:","completion":"falta_agua"}
+{"prompt":"Usuario: Quiero hablar con una persona\nAsistente:","completion":"hablar_operador"}

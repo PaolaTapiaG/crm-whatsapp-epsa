@@ -1,0 +1,10 @@
+services:
+  backend:
+    build:
+      context: ./backend-laravel
+      dockerfile: ../docker/backend.Dockerfile
+    working_dir: /var/www/html
+    volumes:
+      - ./backend-laravel:/var/www/html
+    ports:
+      - "8000:8000"
