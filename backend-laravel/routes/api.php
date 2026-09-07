@@ -19,17 +19,12 @@ use Illuminate\Http\Request;
 */
 
 Route::options('{any}', function (Request $request) {
-    $origin = (string) $request->headers->get('Origin');
-    $allowed = preg_match('/^https:\/\/crm-whatsapp-epsa(?:-[a-z0-9-]+)?\.vercel\.app$/', $origin) === 1;
     $response = response('', 204);
 
-    if ($allowed) {
-        $response->headers->set('Access-Control-Allow-Origin', $origin);
-        $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-        $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-CSRF-TOKEN, Accept');
-        $response->headers->set('Access-Control-Max-Age', '86400');
-        $response->headers->set('Vary', 'Origin');
-    }
+    $response->headers->set('Access-Control-Allow-Origin', '*');
+    $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    $response->headers->set('Access-Control-Allow-Headers', '*');
+    $response->headers->set('Access-Control-Max-Age', '86400');
 
     return $response;
 })->where('any', '.*');
