@@ -43,3 +43,5 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+.neon
+.env.local
