@@ -11,11 +11,11 @@ RUN apt-get update \
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 COPY backend-laravel/composer.json backend-laravel/composer.lock ./
-ENV COMPOSER_MAX_PARALLEL_HTTP=4 \
+ENV COMPOSER_MAX_PARALLEL_HTTP=1 \
     COMPOSER_PROCESS_TIMEOUT=900
-RUN composer install --no-dev --no-interaction --prefer-dist --no-scripts \
-    || (sleep 5 && composer install --no-dev --no-interaction --prefer-dist --no-scripts) \
-    || (sleep 15 && composer install --no-dev --no-interaction --prefer-source --no-scripts)
+RUN git config --global http.version HTTP/1.1 \
+    && composer install --no-dev --no-interaction --prefer-source --no-scripts \
+    || (sleep 10 && composer install --no-dev --no-interaction --prefer-source --no-scripts)
 
 COPY backend-laravel/ ./
 
