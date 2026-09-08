@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\TicketController;
 use App\Http\Controllers\Api\V1\IntentController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\OperatorController;
+use App\Http\Middleware\EnsureCors;
 use Illuminate\Http\Request;
 
 /*
@@ -29,7 +30,7 @@ Route::options('{any}', function (Request $request) {
     return $response;
 })->where('any', '.*');
 
-Route::prefix('v1')->group(function () {
+Route::middleware(EnsureCors::class)->prefix('v1')->group(function () {
     
     // WhatsApp Webhooks
     Route::prefix('whatsapp')->group(function () {

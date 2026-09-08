@@ -33,4 +33,4 @@ RUN echo "=== Verificando EnsureCors.php ===" \
     && echo "=== Verificando bootstrap/app.php ===" \
     && grep -A10 "withMiddleware" bootstrap/app.php
 
-CMD ["sh", "-c", "php artisan config:clear && exec env PHP_CLI_SERVER_WORKERS=2 php artisan serve --host=0.0.0.0 --port=${PORT:-10000}"]
+CMD ["sh", "-c", "php artisan config:clear && exec env PHP_CLI_SERVER_WORKERS=2 php artisan serve --no-reload --host=0.0.0.0 --port=${PORT:-10000}"]
