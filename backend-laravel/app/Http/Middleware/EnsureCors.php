@@ -10,23 +10,31 @@ class EnsureCors
 {
     public function handle(Request $request, Closure $next): Response
     {
-        // Para pre-flight (OPTIONS)
-        if ($request->isMethod('OPTIONS')) {
-            return response()->json([], 204)
-                ->header('Access-Control-Allow-Origin', '*')
-                ->header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
-                ->header('Access-Control-Allow-Headers', '*')
-                ->header('Access-Control-Max-Age', '86400');
+        $origin = (string) $request->headers->get('Origin');
+        $allowed = preg_match(
+            '#^https://crm-whatsapp-epsa(?:-[a-z0-9-]+)?\\.vercel\\.app$#',
+            $origin
+        ) === 1;
+
+        if (app()->environment('local') && preg_match('#^http://(localhost|127\\.0\\.0\\.1)(:\\d+)?$#', $origin) === 1) {
+            $allowed = true;
         }
 
-        $response = $next($request);
-        
-        // Agregar headers CORS a TODAS las respuestas
-        $response->headers->set('Access-Control-Allow-Origin', '*');
+        $response = $request->isMethod('OPTIONS')
+            ? response()->noContent(204)
+            : $next($request);
+
+        if (! $allowed) {
+            return $response;
+        }
+
+        $response->headers->set('Access-Control-Allow-Origin', $origin);
         $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
         $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
         $response->headers->set('Access-Control-Expose-Headers', 'Authorization');
-        
+        $response->headers->set('Access-Control-Max-Age', '86400');
+        $response->headers->set('Vary', 'Origin');
+
         return $response;
     }
 }
