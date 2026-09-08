@@ -90,9 +90,7 @@ class DashboardController extends Controller
         }
 
         $provider = strtolower((string) env('AI_PROVIDER', 'groq'));
-        $connected = $provider === 'groq'
-            ? Http::connectTimeout(1)->timeout(2)->withToken((string) env('GROQ_API_KEY'))->get('https://api.groq.com/openai/v1/models')->successful()
-            : Http::timeout(2)->get('http://127.0.0.1:11434/api/tags')->successful();
+        $connected = filled(env('GROQ_API_KEY')) && $provider === 'groq';
 
         return response()->json(['success' => true, 'data' => [
             'ia_status' => $connected ? 'connected' : 'disconnected',
