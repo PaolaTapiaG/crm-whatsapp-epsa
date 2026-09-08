@@ -8,12 +8,9 @@ const isLocalApiUrl = /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?$/i.test(co
 const LARAVEL_URL = import.meta.env.PROD && isLocalApiUrl
   ? productionApiUrl
   : configuredApiUrl || productionApiUrl;
-const isVercelDeployment = import.meta.env.PROD
-  && typeof window !== 'undefined'
-  && window.location.hostname.endsWith('.vercel.app');
-// Vercel proxies API calls in production so browsers never need a cross-origin
-// request to Render. Local development continues to call Laravel directly.
-const V1_URL = isVercelDeployment ? '/api/v1' : `${LARAVEL_URL}/api/v1`;
+// Use Render directly. Vercel preview deployments may be protected by SSO,
+// which turns API rewrites into redirects that Axios cannot consume.
+const V1_URL = `${LARAVEL_URL}/api/v1`;
 // Keep a stalled free-tier backend from accumulating requests in every open CRM tab.
 axios.defaults.timeout = 15000;
 
