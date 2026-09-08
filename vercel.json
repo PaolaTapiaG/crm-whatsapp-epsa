@@ -1,0 +1,14 @@
+{
+  "buildCommand": "npm --prefix whatsapp-simulator install && npm --prefix whatsapp-simulator run build",
+  "outputDirectory": "whatsapp-simulator/dist",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://crm-whatsapp-epsa.onrender.com/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

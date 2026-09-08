@@ -8,7 +8,12 @@ const isLocalApiUrl = /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?$/i.test(co
 const LARAVEL_URL = import.meta.env.PROD && isLocalApiUrl
   ? productionApiUrl
   : configuredApiUrl || productionApiUrl;
-const V1_URL = `${LARAVEL_URL}/api/v1`;
+const isVercelDeployment = import.meta.env.PROD
+  && typeof window !== 'undefined'
+  && window.location.hostname.endsWith('.vercel.app');
+// Vercel proxies API calls in production so browsers never need a cross-origin
+// request to Render. Local development continues to call Laravel directly.
+const V1_URL = isVercelDeployment ? '/api/v1' : `${LARAVEL_URL}/api/v1`;
 axios.defaults.timeout = 60000;
 
 export const api = {
