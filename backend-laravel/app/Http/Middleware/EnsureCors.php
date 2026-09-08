@@ -15,8 +15,13 @@ class EnsureCors
         $allowed = in_array('*', (array) ($config['allowed_origins'] ?? []), true);
 
         if ($request->isMethod('OPTIONS')) {
-            $response = response('', 204);
-        } else {
+    return response('CORS TEST', 204)
+        ->header('Access-Control-Allow-Origin', '*')
+        ->header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
+        ->header('Access-Control-Allow-Headers', '*')
+        ->header('Access-Control-Max-Age', '86400')
+        ->header('Vary', 'Origin');
+} else {
             $response = $next($request);
         }
 
