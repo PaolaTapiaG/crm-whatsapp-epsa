@@ -144,6 +144,8 @@ const OperatorChatPage: React.FC = () => {
   const [notice, setNotice] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('water-crm-sound') !== 'off');
   const latestActivityRef = useRef('');
+  const conversationsLoadingRef = useRef(false);
+  const messagesLoadingRef = useRef<number | null>(null);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
@@ -173,6 +175,8 @@ const OperatorChatPage: React.FC = () => {
   };
 
   const loadConversations = async () => {
+    if (conversationsLoadingRef.current) return;
+    conversationsLoadingRef.current = true;
     try {
       const next = await api.getOperatorConversations();
       const inboundActivity = next
@@ -190,22 +194,28 @@ const OperatorChatPage: React.FC = () => {
         return ordered.find((conversation) => conversation.id === current.id) ?? current;
       });
     } catch {
-      setConversations([]);
+      // Preserve the last known list while Render or Neon recovers.
+    } finally {
+      conversationsLoadingRef.current = false;
     }
   };
 
   const loadMessages = async (id: number) => {
+    if (messagesLoadingRef.current === id) return;
+    messagesLoadingRef.current = id;
     try {
       const result = await api.getOperatorMessages(String(id));
       setMessages(Array.isArray(result.data) ? result.data : []);
     } catch {
-      setMessages([]);
+      // Preserve visible chat history during a transient request failure.
+    } finally {
+      messagesLoadingRef.current = null;
     }
   };
 
   useEffect(() => {
     loadConversations();
-    const timer = window.setInterval(loadConversations, 2000);
+    const timer = window.setInterval(loadConversations, 8000);
     return () => window.clearInterval(timer);
   }, []);
 
@@ -213,7 +223,7 @@ const OperatorChatPage: React.FC = () => {
     if (!active) return;
     setInvoice((current) => ({ ...current, user_name: active.client?.name || current.user_name }));
     loadMessages(active.id);
-    const timer = window.setInterval(() => loadMessages(active.id), 1500);
+    const timer = window.setInterval(() => loadMessages(active.id), 5000);
     return () => window.clearInterval(timer);
   }, [active?.id]);
 

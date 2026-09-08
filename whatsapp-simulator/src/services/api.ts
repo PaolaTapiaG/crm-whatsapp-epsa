@@ -14,7 +14,8 @@ const isVercelDeployment = import.meta.env.PROD
 // Vercel proxies API calls in production so browsers never need a cross-origin
 // request to Render. Local development continues to call Laravel directly.
 const V1_URL = isVercelDeployment ? '/api/v1' : `${LARAVEL_URL}/api/v1`;
-axios.defaults.timeout = 60000;
+// Keep a stalled free-tier backend from accumulating requests in every open CRM tab.
+axios.defaults.timeout = 15000;
 
 export const api = {
   async sendMessage(phoneNumber: string, message: string, sessionId?: string): Promise<ApiResponse> {

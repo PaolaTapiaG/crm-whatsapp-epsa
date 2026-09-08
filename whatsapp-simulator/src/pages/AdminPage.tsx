@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { api } from '../services/api';
 import { DashboardIaStatus, DashboardIntent, DashboardMessage, DashboardStats } from '../types';
 import AdminSidebar from '../components/AdminSidebar';
@@ -19,9 +19,12 @@ const AdminPage: React.FC = () => {
   const [iaStatus, setIaStatus] = useState<DashboardIaStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const loadingRef = useRef(false);
 
   useEffect(() => {
     const loadData = async () => {
+      if (loadingRef.current) return;
+      loadingRef.current = true;
       const results = await Promise.allSettled([
           api.getDashboardStats(),
           api.getRecentDashboardMessages(),
@@ -37,10 +40,11 @@ const AdminPage: React.FC = () => {
       if (iaResult.status === 'fulfilled') setIaStatus(iaResult.value);
       setError(failures.length ? 'Algunos datos no respondieron. Render puede estar despertando.' : null);
       setLoading(false);
+      loadingRef.current = false;
     };
 
     loadData();
-    const interval = setInterval(loadData, 30000);
+    const interval = setInterval(loadData, 20000);
     
     return () => clearInterval(interval);
   }, []);
