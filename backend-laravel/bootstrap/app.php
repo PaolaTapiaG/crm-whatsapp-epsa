@@ -1,3 +1,4 @@
+
 <?php
 
 use Illuminate\Foundation\Application;
@@ -17,7 +18,18 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->prepend(\App\Http\Middleware\EnsureCors::class);
+        // Registrar CORS para TODAS las rutas
+        $middleware->append(\App\Http\Middleware\EnsureCors::class);
+        
+        // También para el grupo API específicamente
+        $middleware->api(prepend: [
+            \App\Http\Middleware\EnsureCors::class,
+        ]);
+        
+        // Y para web
+        $middleware->web(prepend: [
+            \App\Http\Middleware\EnsureCors::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
