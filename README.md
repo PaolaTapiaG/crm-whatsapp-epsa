@@ -6,8 +6,7 @@ Plataforma CRM para gestionar conversaciones de WhatsApp con servicios de IA.
 
 - `backend-laravel/`: API y lógica principal en Laravel.
 - `ai-service/`: servicio FastAPI previsto para la fase 2.
-- `frontend-react/`: panel administrativo previsto para la fase 3.
-- `whatsapp-simulator/`: simulador local de mensajes de WhatsApp.
+- `crm-fronted/`: frontend React y simulador local de mensajes de WhatsApp.
 
 ## Backend
 

@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Stop'
 
 $root = Join-Path $PSScriptRoot 'water-crm-ia'
 $backend = Join-Path $root 'backend-laravel'
-$simulator = Join-Path $root 'whatsapp-simulator'
+$simulator = Join-Path $root 'crm-fronted'
 
 function Test-Port($port) {
     return [bool](Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue)

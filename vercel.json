@@ -1,6 +1,6 @@
 {
-  "buildCommand": "npm --prefix whatsapp-simulator install && npm --prefix whatsapp-simulator run build",
-  "outputDirectory": "whatsapp-simulator/dist",
+  "buildCommand": "npm --prefix crm-fronted install && npm --prefix crm-fronted run build",
+  "outputDirectory": "crm-fronted/dist",
   "rewrites": [
     {
       "source": "/api/:path*",
