@@ -4,9 +4,11 @@ import { ApiResponse, DashboardIaStatus, DashboardIntent, DashboardMessage, Dash
 import { API_BASE_URL } from '../config/api';
 
 const configuredApiUrl = String(import.meta.env.VITE_LARAVEL_URL || '').trim().replace(/\/$/, '');
-const V1_URL = import.meta.env.PROD && configuredApiUrl
-  ? `${configuredApiUrl}/api/v1`
-  : API_BASE_URL;
+const V1_URL = import.meta.env.PROD
+  ? API_BASE_URL
+  : configuredApiUrl
+    ? `${configuredApiUrl}/api/v1`
+    : API_BASE_URL;
 // Keep a stalled free-tier backend from accumulating requests in every open CRM tab.
 axios.defaults.timeout = 15000;
 
