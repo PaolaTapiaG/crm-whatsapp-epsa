@@ -2,14 +2,11 @@
 import axios from 'axios';
 import { ApiResponse, DashboardIaStatus, DashboardIntent, DashboardMessage, DashboardStats, HealthStatus } from '../types';
 
-const productionApiUrl = 'https://crm-whatsapp-epsa.onrender.com';
 const configuredApiUrl = String(import.meta.env.VITE_LARAVEL_URL || '').trim().replace(/\/$/, '');
 const isLocalApiUrl = /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredApiUrl);
-const LARAVEL_URL = import.meta.env.PROD && isLocalApiUrl
-  ? productionApiUrl
-  : configuredApiUrl || productionApiUrl;
-// Use Render directly. Vercel preview deployments may be protected by SSO,
-// which turns API rewrites into redirects that Axios cannot consume.
+const LARAVEL_URL = import.meta.env.PROD
+  ? (configuredApiUrl && !isLocalApiUrl ? configuredApiUrl : '')
+  : configuredApiUrl || 'http://localhost:8000';
 const V1_URL = `${LARAVEL_URL}/api/v1`;
 // Keep a stalled free-tier backend from accumulating requests in every open CRM tab.
 axios.defaults.timeout = 15000;
