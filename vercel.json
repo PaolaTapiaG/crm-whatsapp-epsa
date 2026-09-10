@@ -1,14 +1,12 @@
 {
-  "buildCommand": "npm --prefix crm-fronted install && npm --prefix crm-fronted run build",
+  "buildCommand": "cd crm-fronted && npm install && npm run build",
   "outputDirectory": "crm-fronted/dist",
+  "installCommand": "cd crm-fronted && npm install",
+  "framework": null,
   "rewrites": [
     {
       "source": "/api/:path*",
       "destination": "https://crm-whatsapp-epsa.onrender.com/api/:path*"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
     }
   ],
   "headers": [
