@@ -103,6 +103,9 @@ const ProfilePage: React.FC = () => {
   const [mapQuery, setMapQuery] = useState('');
   const [mapPosition, setMapPosition] = useState({ latitude: -17.3895, longitude: -66.1568 });
   const [searchingAddress, setSearchingAddress] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  const exactLocationUrl = `https://www.openstreetmap.org/?mlat=${mapPosition.latitude}&mlon=${mapPosition.longitude}#map=18/${mapPosition.latitude}/${mapPosition.longitude}`;
 
   useEffect(() => {
     const stored = localStorage.getItem('water-crm-profile');
@@ -182,6 +185,11 @@ const ProfilePage: React.FC = () => {
     setPhotoFile(file);
     reader.readAsDataURL(file);
   };
+  const copyExactLocation = async () => {
+    await navigator.clipboard.writeText(exactLocationUrl);
+    setLinkCopied(true);
+    window.setTimeout(() => setLinkCopied(false), 2000);
+  };
   const save = async () => {
     setSaving(true);
     setSaveError('');
@@ -242,11 +250,11 @@ const ProfilePage: React.FC = () => {
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <label className="text-xs text-slate-400 sm:col-span-2">Nombre<input value={profile.name} readOnly className={`${field} cursor-not-allowed opacity-70`} /></label>
             <label className="text-xs text-slate-400 sm:col-span-2">Descripción<textarea value={profile.about} onChange={(e) => update('about', e.target.value)} placeholder="Escribe una descripción para tus clientes" rows={3} className={field} /></label>
-            <div className="sm:col-span-2"><label className="text-xs text-slate-400">Dirección</label><div className="mt-2 flex gap-2"><input value={mapQuery} onChange={(e) => { setMapQuery(e.target.value); update('address', e.target.value); }} placeholder="Busca una dirección" className={field} /><button type="button" onClick={searchAddress} disabled={searchingAddress} title="Buscar dirección" className="mt-2 shrink-0 bg-sky-600 px-3 text-white disabled:opacity-50"><Search className="h-4 w-4" /></button></div><p className="mt-2 text-xs text-slate-500">Haz clic en el mapa o arrastra el marcador para elegir el punto exacto.</p><div className="mt-3 overflow-hidden border border-slate-700"><InteractiveMap position={mapPosition} onPositionChange={selectMapPosition} /></div></div>
+            <div className="sm:col-span-2"><label className="text-xs text-slate-400">Dirección</label><div className="mt-2 flex gap-2"><input value={mapQuery} onChange={(e) => { setMapQuery(e.target.value); update('address', e.target.value); }} placeholder="Busca una dirección" className={field} /><button type="button" onClick={searchAddress} disabled={searchingAddress} title="Buscar dirección" className="mt-2 shrink-0 bg-sky-600 px-3 text-white disabled:opacity-50"><Search className="h-4 w-4" /></button></div><p className="mt-2 text-xs text-slate-500">WhatsApp guarda este campo como texto. Para ajustar el punto, haz clic en el mapa o arrastra la gota.</p><div className="mt-3 overflow-hidden border border-slate-700"><InteractiveMap position={mapPosition} onPositionChange={selectMapPosition} /></div><div className="mt-2 flex flex-wrap items-center gap-3"><button type="button" onClick={copyExactLocation} className="text-xs text-sky-300 hover:text-sky-200">{linkCopied ? 'Enlace copiado' : 'Copiar enlace exacto del punto'}</button><span className="text-xs text-slate-500">{mapPosition.latitude.toFixed(6)}, {mapPosition.longitude.toFixed(6)}</span></div><p className="mt-2 text-xs text-amber-300">El perfil de WhatsApp no admite coordenadas; para enviar un pin exacto usa el botón de ubicación del chat.</p></div>
             <label className="text-xs text-slate-400 sm:col-span-2">Sitio web<input value={profile.website} onChange={(e) => update('website', e.target.value)} placeholder="https://..." className={field} /></label>
           </div>
           <div className="mt-6 border-t border-slate-800 pt-5"><h3 className="font-semibold">Horario</h3><p className="mt-1 text-xs text-slate-500">Configura los días y horas de atención. Se guardan en el CRM.</p><div className="mt-4 space-y-2">{hours.map((item, index) => <div key={item.day} className="grid grid-cols-[1fr_auto_1fr_1fr] items-center gap-2 text-sm"><span className="text-slate-300">{item.day}</span><input type="checkbox" checked={item.enabled} onChange={(e) => updateHour(index, { enabled: e.target.checked })} className="h-4 w-4 accent-sky-500" /><input type="time" value={item.open} disabled={!item.enabled} onChange={(e) => updateHour(index, { open: e.target.value })} className={`${field} mt-0 disabled:opacity-40`} /><input type="time" value={item.close} disabled={!item.enabled} onChange={(e) => updateHour(index, { close: e.target.value })} className={`${field} mt-0 disabled:opacity-40`} /></div>)}</div></div>
-          <div className="mt-5 flex flex-wrap gap-3"><button disabled={saving} onClick={save} className="flex items-center gap-2 bg-sky-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"><Save className="h-4 w-4" /> {saving ? 'Actualizando WhatsApp...' : 'Guardar perfil'}</button><a href={`https://www.openstreetmap.org/?mlat=${mapPosition.latitude}&mlon=${mapPosition.longitude}#map=16/${mapPosition.latitude}/${mapPosition.longitude}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 border border-slate-700 px-4 py-2 text-sm text-slate-300"><MapPin className="h-4 w-4" /> Abrir mapa</a></div>
+          <div className="mt-5 flex flex-wrap gap-3"><button disabled={saving} onClick={save} className="flex items-center gap-2 bg-sky-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"><Save className="h-4 w-4" /> {saving ? 'Actualizando WhatsApp...' : 'Guardar perfil'}</button><a href={exactLocationUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 border border-slate-700 px-4 py-2 text-sm text-slate-300"><MapPin className="h-4 w-4" /> Abrir punto exacto</a></div>
         </section>
       </div>
     </main>
