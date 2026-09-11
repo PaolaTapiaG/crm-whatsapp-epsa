@@ -115,8 +115,14 @@ const ProfilePage: React.FC = () => {
         description: profile.about,
         website: profile.website,
       }, photoFile);
-      if (!response?.success) {
-        const details = response?.error?.message || response?.error?.error_user_msg || response?.error || 'Respuesta vacía del backend.';
+      const confirmed = response?.success === true
+        || response?.data?.success === true
+        || response?.data?.data?.success === true;
+      if (!confirmed) {
+        const details = response?.error?.message
+          || response?.error?.error_user_msg
+          || response?.error
+          || (response ? JSON.stringify(response) : 'Respuesta vacía del backend.');
         throw new Error(`WhatsApp no confirmó la actualización del perfil: ${details}`);
       }
       localStorage.setItem('water-crm-profile', JSON.stringify({ ...profile, hours }));
