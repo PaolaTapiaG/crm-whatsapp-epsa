@@ -135,6 +135,7 @@ const OperatorChatPage: React.FC = () => {
   const [noticeText, setNoticeText] = useState(templates[0].text);
   const [noticeRecipients, setNoticeRecipients] = useState('');
   const [noticeImage, setNoticeImage] = useState<File | null>(null);
+  const [quickRepliesOpen, setQuickRepliesOpen] = useState(false);
   const [profile, setProfile] = useState(() => readStored('water-crm-company-profile', { displayName: 'EPSA El Portillo', role: 'Servicio de agua potable', photo: '' }));
   const [location, setLocation] = useState(() => readStored('water-crm-company-location', {
     latitude: '-17.3895',
@@ -359,7 +360,7 @@ const OperatorChatPage: React.FC = () => {
         soundEnabled={soundEnabled}
         onToggleSound={toggleSound}
       />
-      <main className={`mx-auto flex h-full max-w-[1600px] flex-col px-3 py-3 transition-[margin] duration-200 sm:px-4 md:px-6 md:py-5 ${sidebarCollapsed ? 'md:ml-16' : 'md:ml-64'}`}>
+      <main className={`mx-auto flex h-full max-w-[1600px] flex-col px-3 py-3 pl-16 transition-[margin] duration-200 sm:px-4 sm:pl-16 md:px-6 md:py-5 md:pl-6 ${sidebarCollapsed ? 'md:ml-16' : 'md:ml-64'}`}>
         <header className="mb-5 flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase text-sky-600 dark:text-sky-300">Chat WA y operaciones</p>
@@ -472,10 +473,15 @@ const OperatorChatPage: React.FC = () => {
                 </div>
 
                 <div className="border-t border-sky-100 p-4 dark:border-slate-800">
-                  <div className="mb-3 flex flex-wrap gap-2">
-                    {quickReplies.map((reply) => (
-                      <button key={reply} onClick={() => sendText(reply)} className="rounded-md border border-sky-200 px-3 py-2 text-xs text-sky-700 hover:bg-sky-50 dark:border-slate-700 dark:text-sky-200 dark:hover:bg-slate-800">{reply.slice(0, 42)}...</button>
-                    ))}
+                  <div className="mb-3">
+                    <button onClick={() => setQuickRepliesOpen((open) => !open)} className="rounded-md border border-sky-200 px-3 py-2 text-xs text-sky-700 dark:border-slate-700 dark:text-sky-200">
+                      {quickRepliesOpen ? 'Ocultar respuestas rápidas' : 'Mostrar respuestas rápidas'}
+                    </button>
+                    {quickRepliesOpen && <div className="mt-2 flex max-h-28 flex-wrap gap-2 overflow-y-auto">
+                      {quickReplies.map((reply) => (
+                        <button key={reply} onClick={() => { sendText(reply); setQuickRepliesOpen(false); }} className="rounded-md border border-sky-200 px-3 py-2 text-xs text-sky-700 hover:bg-sky-50 dark:border-slate-700 dark:text-sky-200 dark:hover:bg-slate-800">{reply.slice(0, 42)}...</button>
+                      ))}
+                    </div>}
                   </div>
                   <div className="flex gap-2">
                     <input value={text} onChange={(event) => setText(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && sendText()} placeholder="Responder al cliente..." className={inputBase} />

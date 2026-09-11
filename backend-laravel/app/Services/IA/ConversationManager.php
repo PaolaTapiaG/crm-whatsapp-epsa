@@ -67,9 +67,17 @@ class ConversationManager
             return ['response' => $result, 'analysis' => ['intent' => 'zona', 'confidence' => 100]];
         } else {
             $ruleAnalysis = $this->detectIntent($normalizedText);
-            $analysis = ($ruleAnalysis['intent'] ?? 'otro') !== 'otro'
-                ? $ruleAnalysis
-                : ($this->useIA ? $this->analyzeWithOllama($text, $conversation) : $ruleAnalysis);
+            $analysis = $this->useIA
+                ? $this->analyzeWithOllama($text, $conversation)
+                : $ruleAnalysis;
+
+            // Preserve Groq as the main classifier, but never let a vague result
+            // override an explicit service problem in the user's own words.
+            if (($ruleAnalysis['confidence'] ?? 0) >= 90
+                && ($ruleAnalysis['intent'] ?? 'otro') !== 'otro'
+                && in_array($ruleAnalysis['intent'], ['rotura_caneria', 'fuga_casa', 'falta_agua'], true)) {
+                $analysis = array_merge($analysis, $ruleAnalysis, ['source' => 'groq_with_safety_rule']);
+            }
         }
 
         if (!empty($analysis['entities']) && is_array($analysis['entities'])) {
