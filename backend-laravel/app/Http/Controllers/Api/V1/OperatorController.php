@@ -19,7 +19,7 @@ class OperatorController extends Controller
     {
         $latestConversationIds = Conversation::query()
             ->selectRaw('MAX(id) as id')
-            ->whereIn('status', ['active', 'pending', 'transferred'])
+            ->whereIn('status', ['active', 'transferred', 'finished', 'closed'])
             ->groupBy('client_id');
 
         $conversations = Conversation::with(['client', 'lastMessage'])
@@ -207,7 +207,7 @@ class OperatorController extends Controller
 
     public function close(string $conversationId)
     {
-        Conversation::findOrFail($conversationId)->update(['status' => 'closed', 'ended_at' => now()]);
+        Conversation::findOrFail($conversationId)->update(['status' => 'finished', 'ended_at' => now()]);
 
         return response()->json(['success' => true]);
     }

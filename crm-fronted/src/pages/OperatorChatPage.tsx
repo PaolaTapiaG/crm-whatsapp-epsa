@@ -23,11 +23,12 @@ import { api } from '../services/api';
 
 type ChatFilter = 'active' | 'recent' | 'groups' | 'all';
 type MobileView = 'chats' | 'chat' | 'tools';
+type ConversationStatus = 'active' | 'transferred' | 'finished' | 'closed';
 
 interface Conversation {
   id: number;
   client_id?: number;
-  status: string;
+  status: ConversationStatus;
   priority: string;
   channel?: string;
   updated_at?: string;
@@ -235,7 +236,7 @@ const OperatorChatPage: React.FC = () => {
       const matchesQuery = !normalized || haystack.includes(normalized);
       const matchesFilter =
         filter === 'all' ||
-        (filter === 'active' && ['active', 'pending', 'transferred'].includes(conversation.status)) ||
+        (filter === 'active' && ['active', 'transferred'].includes(conversation.status)) ||
         (filter === 'recent' && Boolean(conversation.last_message || conversation.updated_at)) ||
         (filter === 'groups' && isGroup);
       return matchesQuery && matchesFilter;
@@ -249,6 +250,13 @@ const OperatorChatPage: React.FC = () => {
     await api.sendOperatorMessage({ to: active.client?.whatsapp_number || '', text: content, conversation_id: active.id });
     setText('');
     await loadMessages(active.id);
+  };
+
+  const changeStatus = async (status: 'active' | 'transferred' | 'finished') => {
+    if (!active) return;
+    await api.updateConversationStatus(String(active.id), status);
+    setActive((current) => current ? { ...current, status } : current);
+    await loadConversations();
   };
 
   const sendQr = async () => {
@@ -435,7 +443,9 @@ const OperatorChatPage: React.FC = () => {
                   </div>
                   <div className="flex gap-2">
                     <button title="Enviar ubicacion" onClick={sendLocation} className="rounded-md border border-sky-200 p-2 text-sky-700 dark:border-slate-700 dark:text-sky-200"><MapPin className="h-4 w-4" /></button>
-                    <button title="Cerrar chat" onClick={() => api.updateConversation(String(active.id), 'close')} className="rounded-md border border-rose-200 p-2 text-rose-600 dark:border-rose-900"><XCircle className="h-4 w-4" /></button>
+                    {active.status !== 'active' && <button title="Reactivar IA" onClick={() => changeStatus('active')} className="rounded-md border border-emerald-200 px-2 text-xs text-emerald-600 dark:border-emerald-900">Activar IA</button>}
+                    {active.status !== 'transferred' && <button title="Transferir al operador" onClick={() => changeStatus('transferred')} className="rounded-md border border-amber-200 px-2 text-xs text-amber-600 dark:border-amber-900">Transferir</button>}
+                    {active.status !== 'finished' && <button title="Finalizar conversación" onClick={() => changeStatus('finished')} className="rounded-md border border-rose-200 p-2 text-rose-600 dark:border-rose-900"><XCircle className="h-4 w-4" /></button>}
                   </div>
                 </div>
 

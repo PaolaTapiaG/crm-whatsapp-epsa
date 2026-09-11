@@ -39,6 +39,18 @@ class WhatsAppService
             // 2. Buscar o crear conversación
             $conversation = $this->findOrCreateConversation($client, $data);
 
+            if (in_array($conversation->status, ['finished', 'closed'], true)) {
+                $conversation->update([
+                    'status' => 'active',
+                    'ended_at' => null,
+                    'context' => array_merge($conversation->context ?? [], [
+                        'waiting_for' => null,
+                        'action' => null,
+                    ]),
+                ]);
+                $conversation->refresh();
+            }
+
             if (!empty($data['message_id'])) {
                 $alreadyProcessed = Message::where('whatsapp_message_id', $data['message_id'])->exists();
                 if ($alreadyProcessed) {

@@ -92,9 +92,8 @@ export const api = {
     return response.data.data;
   },
 
-  async updateConversation(id: string, action: 'close' | 'transfer') {
-    const route = action === 'close' ? 'close' : 'transfer';
-    const response = await axios.post(`${V1_URL}/conversations/${id}/${route}`);
+  async updateConversationStatus(id: string, status: 'active' | 'transferred' | 'finished') {
+    const response = await axios.patch(`${V1_URL}/conversations/${id}/status`, { status });
     return response.data;
   },
 

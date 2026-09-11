@@ -94,15 +94,18 @@ class ConversationController extends Controller
     public function updateStatus(Request $request, $id)
     {
         $validated = $request->validate([
-            'status' => 'required|string|in:active,pending,closed,transferred',
+            'status' => 'required|string|in:active,transferred,finished,closed',
             'priority' => 'nullable|string|in:low,normal,high,urgent',
         ]);
 
         $conversation = Conversation::findOrFail($id);
         $conversation->update($validated);
 
-        if ($validated['status'] === 'closed') {
+        if (in_array($validated['status'], ['finished', 'closed'], true)) {
             $conversation->ended_at = now();
+            $conversation->save();
+        } elseif ($validated['status'] === 'active') {
+            $conversation->ended_at = null;
             $conversation->save();
         }
 
@@ -148,7 +151,7 @@ class ConversationController extends Controller
     {
         $conversation = Conversation::findOrFail($id);
         $conversation->update([
-            'status' => 'closed',
+            'status' => 'finished',
             'ended_at' => now()
         ]);
 
@@ -175,7 +178,7 @@ class ConversationController extends Controller
             'total' => Conversation::count(),
             'active' => Conversation::where('status', 'active')->count(),
             'pending' => Conversation::where('status', 'pending')->count(),
-            'closed' => Conversation::where('status', 'closed')->count(),
+            'finished' => Conversation::whereIn('status', ['finished', 'closed'])->count(),
             'transferred' => Conversation::where('status', 'transferred')->count(),
             'high_priority' => Conversation::where('priority', 'high')->count(),
             'urgent' => Conversation::where('priority', 'urgent')->count(),
