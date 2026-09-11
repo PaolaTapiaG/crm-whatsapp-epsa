@@ -79,6 +79,9 @@ Route::middleware(EnsureCors::class)->prefix('v1')->group(function () {
         Route::post('/send-message', [OperatorController::class, 'sendMessage']);
         Route::post('/conversation/{conversationId}/qr', [OperatorController::class, 'sendQr']);
         Route::post('/conversation/{conversationId}/voice', [OperatorController::class, 'sendVoice']);
+        Route::post('/conversation/{conversationId}/attachment', [OperatorController::class, 'sendAttachment']);
+        Route::post('/conversation/{conversationId}/contact', [OperatorController::class, 'sendContact']);
+        Route::post('/forward-message', [OperatorController::class, 'forwardMessage']);
         Route::patch('/payment/{messageId}', [OperatorController::class, 'reviewPayment']);
         Route::post('/conversation/{conversationId}/invoice', [OperatorController::class, 'sendInvoice']);
         Route::post('/conversation/{conversationId}/location', [OperatorController::class, 'sendLocation']);

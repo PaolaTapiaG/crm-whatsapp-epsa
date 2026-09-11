@@ -100,6 +100,28 @@ class OperatorController extends Controller
         return response()->json(['success' => true, 'data' => $result]);
     }
 
+    public function sendAttachment(Request $request, string $conversationId)
+    {
+        $data = $request->validate(['to' => 'required|string', 'file' => 'required|file|max:16384']);
+        $result = $this->whatsApp->sendFile($data['to'], $data['file']);
+        Message::create(['conversation_id' => $conversationId, 'sender' => 'human', 'text' => 'Archivo enviado: ' . $data['file']->getClientOriginalName(), 'metadata' => ['kind' => 'attachment', 'filename' => $data['file']->getClientOriginalName(), 'delivery' => $result['data'] ?? null]]);
+        return response()->json(['success' => true, 'data' => $result]);
+    }
+
+    public function sendContact(Request $request, string $conversationId)
+    {
+        $data = $request->validate(['to' => 'required|string', 'contact_name' => 'required|string|max:120', 'contact_phone' => 'required|string|max:30']);
+        $result = $this->whatsApp->sendContact($data['to'], $data['contact_name'], $data['contact_phone']);
+        Message::create(['conversation_id' => $conversationId, 'sender' => 'human', 'text' => 'Contacto enviado: ' . $data['contact_name'], 'metadata' => ['kind' => 'contact', 'delivery' => $result['data'] ?? null]]);
+        return response()->json(['success' => true, 'data' => $result]);
+    }
+
+    public function forwardMessage(Request $request)
+    {
+        $data = $request->validate(['to' => 'required|string', 'text' => 'required|string|max:4096']);
+        return response()->json(['success' => true, 'data' => $this->whatsApp->sendTextMessage($data['to'], $data['text'])]);
+    }
+
     public function reviewPayment(Request $request, string $messageId)
     {
         $data = $request->validate(['status' => 'required|in:approved,rejected']);

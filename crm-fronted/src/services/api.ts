@@ -151,6 +151,27 @@ export const api = {
     return response.data;
   },
 
+  async sendAttachment(conversationId: number, to: string, file: File) {
+    const form = new FormData(); form.append('to', to); form.append('file', file);
+    const response = await axios.post(`${V1_URL}/operator/conversation/${conversationId}/attachment`, form);
+    return response.data;
+  },
+
+  async sendContact(conversationId: number, payload: { to: string; contact_name: string; contact_phone: string }) {
+    const response = await axios.post(`${V1_URL}/operator/conversation/${conversationId}/contact`, payload);
+    return response.data;
+  },
+
+  async forwardMessage(payload: { to: string; text: string }) {
+    const response = await axios.post(`${V1_URL}/operator/forward-message`, payload);
+    return response.data;
+  },
+
+  async deleteMessage(id: number) {
+    const response = await axios.delete(`${V1_URL}/messages/${id}`);
+    return response.data;
+  },
+
   async reviewPayment(messageId: number, status: 'approved' | 'rejected') {
     const response = await axios.patch(`${V1_URL}/operator/payment/${messageId}`, { status });
     return response.data;

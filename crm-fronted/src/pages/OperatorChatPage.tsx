@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bell,
+  Camera,
   CheckCircle2,
   Clock3,
   ChevronDown,
   Paperclip,
   FileText,
   ImagePlus,
+  ContactRound,
   Mic,
   MapPin,
   MessageCircle,
@@ -15,6 +17,8 @@ import {
   Trash2,
   Search,
   Send,
+  Reply,
+  Forward,
   Smile,
   Settings,
   Sparkles,
@@ -142,7 +146,6 @@ const OperatorChatPage: React.FC = () => {
   const [noticeRecipients, setNoticeRecipients] = useState('');
   const [noticeImage, setNoticeImage] = useState<File | null>(null);
   const [quickRepliesOpen, setQuickRepliesOpen] = useState(false);
-  const [composerOpen, setComposerOpen] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [chatSearch, setChatSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -162,6 +165,7 @@ const OperatorChatPage: React.FC = () => {
   const messagesLoadingRef = useRef<number | null>(null);
   const messagesPanelRef = useRef<HTMLDivElement>(null);
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
+  const [attachmentsOpen, setAttachmentsOpen] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
@@ -288,6 +292,44 @@ const OperatorChatPage: React.FC = () => {
 
   const appendToMessage = (value: string) => setText((current) => `${current}${value}`);
 
+  const sendAttachment = async (file?: File) => {
+    if (!active || !file) return;
+    try {
+      await api.sendAttachment(active.id, active.client?.whatsapp_number || '', file);
+      setAttachmentsOpen(false);
+      setNotice('Archivo enviado correctamente.');
+      await loadMessages(active.id);
+    } catch (error: any) {
+      setNotice(error.response?.data?.error || error.message || 'No se pudo enviar el archivo.');
+    }
+  };
+
+  const sendContact = async () => {
+    if (!active) return;
+    const contactName = window.prompt('Nombre del contacto');
+    const contactPhone = contactName ? window.prompt('Número del contacto') : null;
+    if (!contactName || !contactPhone) return;
+    try {
+      await api.sendContact(active.id, { to: active.client?.whatsapp_number || '', contact_name: contactName, contact_phone: contactPhone });
+      setAttachmentsOpen(false);
+      setNotice('Contacto enviado correctamente.');
+      await loadMessages(active.id);
+    } catch (error: any) {
+      setNotice(error.response?.data?.error || error.message || 'No se pudo enviar el contacto.');
+    }
+  };
+
+  const quoteMessage = (message: Message) => setText(`> ${message.text}\n\n`);
+  const deleteMessage = async (message: Message) => {
+    if (!window.confirm('¿Eliminar este mensaje del CRM?')) return;
+    try { await api.deleteMessage(message.id); if (active) await loadMessages(active.id); } catch (error: any) { setNotice(error.response?.data?.error || error.message || 'No se pudo eliminar el mensaje.'); }
+  };
+  const forwardMessage = async (message: Message) => {
+    const phone = window.prompt('Número de WhatsApp al que reenviar');
+    if (!phone) return;
+    try { await api.forwardMessage({ to: phone, text: message.text }); setNotice('Mensaje reenviado.'); } catch (error: any) { setNotice(error.response?.data?.error || error.message || 'No se pudo reenviar el mensaje.'); }
+  };
+
   const startVoiceRecording = async () => {
     if (!active || !navigator.mediaDevices?.getUserMedia) {
       setNotice('Este navegador no permite grabar audio.');
@@ -385,8 +427,13 @@ const OperatorChatPage: React.FC = () => {
   const sendBroadcast = async () => {
     const recipients = noticeRecipients.split(/[\n,;]/).map((item) => item.trim()).filter(Boolean);
     if (recipients.length === 0 || !noticeText.trim()) return;
-    await api.sendBroadcast({ recipients, text: noticeText, image: noticeImage });
-    setNotice(`Aviso enviado a ${recipients.length} destino(s).`);
+    try {
+      const response = await api.sendBroadcast({ recipients, text: noticeText, image: noticeImage });
+      if (!response?.success) throw new Error(response?.error || 'WhatsApp no confirmó el aviso.');
+      setNotice(`Aviso enviado a ${recipients.length} destino(s).`);
+    } catch (error: any) {
+      setNotice(error.response?.data?.error || error.message || 'No se pudo enviar el aviso.');
+    }
   };
 
   const review = async (messageId: number, status: 'approved' | 'rejected') => {
@@ -548,6 +595,11 @@ const OperatorChatPage: React.FC = () => {
                         <div className={`min-w-0 max-w-[92%] overflow-hidden rounded-lg px-3 py-2 shadow-sm sm:max-w-[76%] ${outbound ? 'bg-[#d9fdd3] text-slate-900 dark:bg-[#005c4b] dark:text-white' : 'bg-white text-slate-900 dark:bg-slate-800 dark:text-slate-100'}`}>
                           <p className={`text-[10px] uppercase ${outbound ? 'text-emerald-700 dark:text-emerald-100' : 'text-slate-400'}`}>{message.sender}</p>
                           <p className="mt-1 break-words whitespace-pre-wrap text-sm leading-relaxed">{message.text}</p>
+                          <div className="mt-2 flex gap-2 border-t border-black/10 pt-2 text-[10px] opacity-80">
+                            <button title="Responder citando" onClick={() => quoteMessage(message)}><Reply className="h-3 w-3" /></button>
+                            <button title="Reenviar" onClick={() => forwardMessage(message)}><Forward className="h-3 w-3" /></button>
+                            <button title="Eliminar del CRM" onClick={() => deleteMessage(message)}><Trash2 className="h-3 w-3" /></button>
+                          </div>
                           {message.metadata?.media_url && <a className="mt-3 block text-xs underline" href={message.metadata.media_url} target="_blank" rel="noreferrer">{message.metadata.kind === 'invoice' ? 'Abrir factura PDF' : message.metadata.kind === 'payment_qr' ? 'Abrir QR enviado' : 'Abrir comprobante'}</a>}
                           {message.metadata?.kind === 'payment_proof' && (
                             <div className="mt-3 flex gap-2">
@@ -575,9 +627,11 @@ const OperatorChatPage: React.FC = () => {
                       ))}
                     </div>}
                   </div>
-                  {composerOpen && <div className="mb-3 flex flex-wrap gap-2 rounded-md border border-sky-100 bg-sky-50 p-2 dark:border-slate-700 dark:bg-slate-950"><button onClick={() => setMobileView('tools')} className="rounded-md border border-sky-200 px-3 py-2 text-xs text-sky-700 dark:border-slate-700 dark:text-sky-200"><QrCode className="mr-1 inline h-4 w-4" /> QR y factura</button><button onClick={() => setEmojiOpen((open) => !open)} className="rounded-md border border-sky-200 px-3 py-2 text-xs text-sky-700 dark:border-slate-700 dark:text-sky-200"><Smile className="mr-1 inline h-4 w-4" /> Emojis</button>{emojiOpen && <div className="flex items-center gap-1">{emojis.map((emoji) => <button key={emoji} onClick={() => appendToMessage(emoji)} className="p-1 text-xl">{emoji}</button>)}</div>}<span className="w-full text-[11px] text-slate-500">Stickers: {stickers.join(' ')}</span></div>}
-                  <div className="flex items-end gap-2">
-                    <button title="Herramientas y adjuntos" onClick={() => setComposerOpen((open) => !open)} className="rounded-md border border-sky-200 p-3 text-sky-700 dark:border-slate-700 dark:text-sky-200"><Paperclip className="h-4 w-4" /></button>
+                  <div className="relative flex items-end gap-2">
+                    <button title="Emojis" onClick={() => setEmojiOpen((open) => !open)} className="rounded-md border border-sky-200 p-3 text-sky-700 dark:border-slate-700 dark:text-sky-200"><Smile className="h-4 w-4" /></button>
+                    {emojiOpen && <div className="absolute bottom-14 left-0 z-30 flex max-w-[90vw] flex-wrap gap-1 rounded-lg border border-sky-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-900">{emojis.map((emoji) => <button key={emoji} onClick={() => appendToMessage(emoji)} className="p-1 text-xl">{emoji}</button>)}</div>}
+                    <button title="Herramientas y adjuntos" onClick={() => setAttachmentsOpen((open) => !open)} className="rounded-md border border-sky-200 p-3 text-sky-700 dark:border-slate-700 dark:text-sky-200"><Paperclip className="h-4 w-4" /></button>
+                    {attachmentsOpen && <div className="absolute bottom-14 left-0 z-30 grid w-64 grid-cols-2 gap-2 rounded-lg border border-sky-200 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-900"><label className="cursor-pointer rounded-md border border-slate-200 p-2 text-xs dark:border-slate-700"><ImagePlus className="mr-1 inline h-4 w-4" />Galería<input type="file" accept="image/*" className="hidden" onChange={(event) => sendAttachment(event.target.files?.[0])} /></label><label className="cursor-pointer rounded-md border border-slate-200 p-2 text-xs dark:border-slate-700"><Camera className="mr-1 inline h-4 w-4" />Cámara<input type="file" accept="image/*" capture="environment" className="hidden" onChange={(event) => sendAttachment(event.target.files?.[0])} /></label><label className="cursor-pointer rounded-md border border-slate-200 p-2 text-xs dark:border-slate-700"><FileText className="mr-1 inline h-4 w-4" />Documento<input type="file" accept="application/pdf,.doc,.docx,.xls,.xlsx" className="hidden" onChange={(event) => sendAttachment(event.target.files?.[0])} /></label><button onClick={sendContact} className="rounded-md border border-slate-200 p-2 text-left text-xs dark:border-slate-700"><ContactRound className="mr-1 inline h-4 w-4" />Contacto</button><button onClick={() => setMobileView('tools')} className="col-span-2 rounded-md bg-sky-600 p-2 text-xs text-white"><QrCode className="mr-1 inline h-4 w-4" />QR y facturación</button></div>}
                     <input value={text} onChange={(event) => setText(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && sendText()} placeholder="Responder al cliente..." className={inputBase} />
                     {text.trim() ? <button title="Enviar" onClick={() => sendText()} className="rounded-md bg-sky-600 px-4 text-white"><Send className="h-4 w-4" /></button> : <button title={recording ? 'Detener y enviar audio' : 'Grabar mensaje de voz'} onClick={recording ? stopVoiceRecording : startVoiceRecording} className={`rounded-md px-4 text-white ${recording ? 'bg-rose-600' : 'bg-sky-600'}`}><Mic className="h-4 w-4" /></button>}
                   </div>
