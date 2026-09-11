@@ -68,6 +68,11 @@ export const api = {
     return response.data;
   },
 
+  async getWhatsAppProfile() {
+    const response = await axios.get(`${V1_URL}/whatsapp/business-profile`);
+    return response.data?.data ?? response.data;
+  },
+
   async getDashboardStats(): Promise<DashboardStats> {
     const response = await requestWithRetry(() => axios.get(`${V1_URL}/dashboard/stats`));
     return response.data.data;

@@ -41,6 +41,19 @@ const ProfilePage: React.FC = () => {
   useEffect(() => {
     const stored = localStorage.getItem('water-crm-profile');
     if (stored) setProfile({ ...defaults, ...JSON.parse(stored) });
+
+    api.getWhatsAppProfile().then((businessProfile) => {
+      if (!businessProfile) return;
+      setProfile((current) => ({
+        ...current,
+        about: businessProfile.about || current.about,
+        address: businessProfile.address || current.address,
+        website: businessProfile.websites?.[0] || current.website,
+        photo: businessProfile.profile_picture_url || current.photo,
+      }));
+    }).catch(() => {
+      // The local profile remains available when Meta is temporarily unreachable.
+    });
   }, []);
 
   const update = (key: keyof Profile, value: string) => setProfile((current) => ({ ...current, [key]: value }));
@@ -97,7 +110,7 @@ const ProfilePage: React.FC = () => {
         <section className="border border-slate-800 bg-slate-900 p-5">
           <h2 className="font-semibold">Información del perfil</h2>
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            <label className="text-xs text-slate-400">Nombre<input value={profile.name} onChange={(e) => update('name', e.target.value)} className={field} /></label>
+            <label className="text-xs text-slate-400">Nombre interno<input value={profile.name} onChange={(e) => update('name', e.target.value)} className={field} /></label>
             <label className="text-xs text-slate-400">Cargo<input value={profile.role} onChange={(e) => update('role', e.target.value)} className={field} /></label>
             <label className="text-xs text-slate-400 sm:col-span-2">Descripción<textarea value={profile.about} onChange={(e) => update('about', e.target.value)} rows={3} className={field} /></label>
             <label className="text-xs text-slate-400 sm:col-span-2">Dirección<input value={profile.address} onChange={(e) => update('address', e.target.value)} className={field} /></label>

@@ -37,6 +37,7 @@ Route::middleware(EnsureCors::class)->prefix('v1')->group(function () {
         Route::get('/webhook', [WhatsAppController::class, 'verifyWebhook']);
         Route::post('/webhook', [WhatsAppController::class, 'webhook']);
         Route::post('/send-message', [WhatsAppController::class, 'sendMessage']);
+        Route::get('/business-profile', [WhatsAppController::class, 'businessProfile']);
         Route::post('/business-profile', [WhatsAppController::class, 'updateBusinessProfile']);
         Route::get('/status', [WhatsAppController::class, 'status']);
     });

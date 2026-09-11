@@ -86,6 +86,26 @@ class WhatsAppAPIService
         return ['success' => true, 'data' => $response->json()];
     }
 
+    public function getBusinessProfile(): array
+    {
+        $response = Http::connectTimeout(2)->timeout(10)
+            ->withToken($this->accessToken)
+            ->acceptJson()
+            ->get("{$this->apiUrl}/{$this->phoneNumberId}/whatsapp_business_profile", [
+                'fields' => 'about,address,description,email,vertical,websites,profile_picture_url',
+            ]);
+
+        if ($response->failed()) {
+            Log::channel('whatsapp')->error('WhatsApp Business Profile fetch error', [
+                'status' => $response->status(),
+                'response' => $response->json(),
+            ]);
+            throw new \RuntimeException($response->json('error.message') ?? 'WhatsApp rechazó la consulta del perfil.');
+        }
+
+        return ['success' => true, 'data' => $response->json('data.0', $response->json())];
+    }
+
     public function downloadIncomingMedia(string $mediaId, string $extension = 'bin'): ?string
     {
         $media = Http::withToken($this->accessToken)->get("{$this->apiUrl}/{$mediaId}");

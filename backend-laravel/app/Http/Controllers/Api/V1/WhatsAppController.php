@@ -328,4 +328,16 @@ class WhatsAppController extends Controller
 
         return response()->json(['success' => true, 'data' => $result]);
     }
+
+    public function businessProfile()
+    {
+        try {
+            return response()->json($this->whatsAppAPIService->getBusinessProfile());
+        } catch (\Throwable $exception) {
+            return response()->json([
+                'success' => false,
+                'error' => $exception->getMessage(),
+            ], 502);
+        }
+    }
 }
