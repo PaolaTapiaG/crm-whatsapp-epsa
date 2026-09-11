@@ -53,6 +53,39 @@ class WhatsAppAPIService
         ]);
     }
 
+    public function updateBusinessProfile(array $profile, ?UploadedFile $photo = null): array
+    {
+        $payload = [
+            'messaging_product' => 'whatsapp',
+            'about' => $profile['about'] ?? '',
+            'address' => $profile['address'] ?? '',
+            'description' => $profile['description'] ?? '',
+            'vertical' => 'PROF_SERVICES',
+            'websites' => array_values(array_filter([
+                $profile['website'] ?? null,
+            ])),
+        ];
+
+        if ($photo) {
+            $payload['profile_picture_handle'] = $this->uploadMedia($photo->getRealPath(), $photo->getMimeType() ?: 'image/jpeg');
+        }
+
+        $response = Http::connectTimeout(2)->timeout(10)
+            ->withToken($this->accessToken)
+            ->acceptJson()
+            ->post("{$this->apiUrl}/{$this->phoneNumberId}/whatsapp_business_profile", $payload);
+
+        if ($response->failed()) {
+            Log::channel('whatsapp')->error('WhatsApp Business Profile API error', [
+                'status' => $response->status(),
+                'response' => $response->json(),
+            ]);
+            throw new \RuntimeException($response->json('error.message') ?? 'WhatsApp rechazó la actualización del perfil.');
+        }
+
+        return ['success' => true, 'data' => $response->json()];
+    }
+
     public function downloadIncomingMedia(string $mediaId, string $extension = 'bin'): ?string
     {
         $media = Http::withToken($this->accessToken)->get("{$this->apiUrl}/{$mediaId}");

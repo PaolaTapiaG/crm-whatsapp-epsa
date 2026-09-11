@@ -57,6 +57,17 @@ export const api = {
     }
   },
 
+  async updateWhatsAppProfile(profile: { about: string; address: string; description: string; website?: string }, photo?: File) {
+    const form = new FormData();
+    form.append('about', profile.about);
+    form.append('address', profile.address);
+    form.append('description', profile.description);
+    if (profile.website) form.append('website', profile.website);
+    if (photo) form.append('photo', photo);
+    const response = await axios.post(`${V1_URL}/whatsapp/business-profile`, form);
+    return response.data;
+  },
+
   async getDashboardStats(): Promise<DashboardStats> {
     const response = await requestWithRetry(() => axios.get(`${V1_URL}/dashboard/stats`));
     return response.data.data;

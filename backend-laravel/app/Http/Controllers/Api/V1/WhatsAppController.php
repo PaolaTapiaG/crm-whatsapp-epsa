@@ -313,4 +313,19 @@ class WhatsAppController extends Controller
             ]
         ]);
     }
+
+    public function updateBusinessProfile(Request $request)
+    {
+        $data = $request->validate([
+            'about' => 'nullable|string|max:139',
+            'address' => 'nullable|string|max:256',
+            'description' => 'nullable|string|max:512',
+            'website' => 'nullable|url|max:256',
+            'photo' => 'nullable|file|image|mimes:jpg,jpeg,png|max:5120',
+        ]);
+
+        $result = $this->whatsAppAPIService->updateBusinessProfile($data, $request->file('photo'));
+
+        return response()->json(['success' => true, 'data' => $result]);
+    }
 }
