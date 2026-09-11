@@ -3,12 +3,14 @@ import {
   Bell,
   CheckCircle2,
   Clock3,
+  ChevronDown,
   FileText,
   ImagePlus,
   MapPin,
   MessageCircle,
   Moon,
   QrCode,
+  Trash2,
   Search,
   Send,
   Settings,
@@ -145,6 +147,8 @@ const OperatorChatPage: React.FC = () => {
   const latestActivityRef = useRef('');
   const conversationsLoadingRef = useRef(false);
   const messagesLoadingRef = useRef<number | null>(null);
+  const messagesPanelRef = useRef<HTMLDivElement>(null);
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
@@ -222,6 +226,25 @@ const OperatorChatPage: React.FC = () => {
     return () => window.clearInterval(timer);
   }, [active?.id]);
 
+  useEffect(() => {
+    const panel = messagesPanelRef.current;
+    if (!panel || messages.length === 0) return;
+    panel.scrollTop = panel.scrollHeight;
+    setShowJumpToLatest(false);
+  }, [active?.id]);
+
+  useEffect(() => {
+    const panel = messagesPanelRef.current;
+    if (!panel) return;
+    const distanceFromBottom = panel.scrollHeight - panel.scrollTop - panel.clientHeight;
+    if (distanceFromBottom < 180) {
+      panel.scrollTop = panel.scrollHeight;
+      setShowJumpToLatest(false);
+    } else {
+      setShowJumpToLatest(true);
+    }
+  }, [messages]);
+
   const filteredConversations = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return conversations.filter((conversation) => {
@@ -251,6 +274,23 @@ const OperatorChatPage: React.FC = () => {
     await api.updateConversationStatus(String(active.id), status);
     setActive((current) => current ? { ...current, status } : current);
     await loadConversations();
+  };
+
+  const deleteConversation = async (conversation: Conversation) => {
+    if (!window.confirm(`¿Eliminar el chat de ${conversation.client?.name || conversation.client?.whatsapp_number || 'este cliente'}? Esta acción borrará también sus mensajes.`)) return;
+    try {
+      await api.deleteConversation(String(conversation.id));
+      const remaining = conversations.filter((item) => item.id !== conversation.id);
+      setConversations(remaining);
+      if (active?.id === conversation.id) {
+        setActive(remaining[0] || null);
+        setMessages([]);
+        setMobileView('chats');
+      }
+      setNotice('Chat eliminado correctamente.');
+    } catch (error: any) {
+      setNotice(error.response?.data?.error || error.message || 'No se pudo eliminar el chat.');
+    }
   };
 
   const sendQr = async () => {
@@ -340,14 +380,14 @@ const OperatorChatPage: React.FC = () => {
   };
 
   return (
-    <div className="h-screen overflow-hidden bg-[#efeae2] text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    <div className="min-h-screen bg-[#efeae2] text-slate-900 dark:bg-slate-950 dark:text-slate-100 md:h-screen md:overflow-hidden">
       <AdminSidebar
         collapsed={sidebarCollapsed}
         onToggle={toggleSidebar}
         soundEnabled={soundEnabled}
         onToggleSound={toggleSound}
       />
-      <main className={`mx-auto flex h-full max-w-[1800px] flex-col px-3 py-3 pl-16 transition-[margin] duration-200 sm:px-4 sm:pl-16 md:px-6 md:py-5 md:pl-6 ${sidebarCollapsed ? 'md:ml-16' : 'md:ml-64'}`}>
+      <main className={`mx-auto flex min-h-screen max-w-[1800px] flex-col px-3 py-3 pl-16 transition-[margin] duration-200 sm:px-4 sm:pl-16 md:h-full md:min-h-0 md:px-6 md:py-5 md:pl-6 ${sidebarCollapsed ? 'md:ml-16' : 'md:ml-64'}`}>
         <header className="mb-5 flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase text-sky-600 dark:text-sky-300">Chat WA y operaciones</p>
@@ -404,7 +444,8 @@ const OperatorChatPage: React.FC = () => {
               {filteredConversations.map((conversation) => {
                 const selected = active?.id === conversation.id;
                 return (
-                  <button key={conversation.id} onClick={() => { setActive(conversation); setMobileView('chat'); }} className={`w-full border-b border-sky-50 px-4 py-4 text-left transition dark:border-slate-800 ${selected ? 'bg-sky-100 dark:bg-sky-950/70' : 'hover:bg-sky-50 dark:hover:bg-slate-800'}`}>
+                  <div key={conversation.id} className={`flex w-full border-b border-sky-50 transition dark:border-slate-800 ${selected ? 'bg-sky-100 dark:bg-sky-950/70' : 'hover:bg-sky-50 dark:hover:bg-slate-800'}`}>
+                  <button onClick={() => { setActive(conversation); setMobileView('chat'); }} className="min-w-0 flex-1 px-4 py-4 text-left">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold">{conversation.metadata?.group_name || conversation.client?.name || 'Nombre pendiente'}</p>
@@ -414,6 +455,8 @@ const OperatorChatPage: React.FC = () => {
                     </div>
                     <p className="mt-3 truncate text-xs text-slate-500">{conversation.last_message?.text || 'Sin mensajes recientes'}</p>
                   </button>
+                  <button title="Eliminar chat" onClick={() => deleteConversation(conversation)} className="self-start p-3 text-slate-400 hover:text-rose-500"><Trash2 className="h-4 w-4" /></button>
+                  </div>
                 );
               })}
               {filteredConversations.length === 0 && <p className="px-4 py-10 text-sm text-slate-500">No hay chats con este filtro.</p>}
@@ -436,7 +479,7 @@ const OperatorChatPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex-1 space-y-3 overflow-y-auto bg-[#efeae2] p-3 dark:bg-slate-950 sm:p-5">
+                <div ref={messagesPanelRef} onScroll={(event) => { const panel = event.currentTarget; setShowJumpToLatest(panel.scrollHeight - panel.scrollTop - panel.clientHeight > 180); }} className="relative flex-1 min-h-[55vh] space-y-3 overflow-y-auto bg-[#efeae2] p-3 dark:bg-slate-950 sm:p-5 md:min-h-0">
                   {messages.map((message) => {
                     const outbound = ['human', 'bot'].includes(message.sender);
                     return (
@@ -456,6 +499,7 @@ const OperatorChatPage: React.FC = () => {
                       </div>
                     );
                   })}
+                  {showJumpToLatest && <button title="Ir al último mensaje" onClick={() => { const panel = messagesPanelRef.current; if (panel) panel.scrollTo({ top: panel.scrollHeight, behavior: 'smooth' }); }} className="sticky bottom-3 left-full z-10 ml-auto flex h-10 w-10 items-center justify-center rounded-full bg-sky-600 text-white shadow-lg"><ChevronDown className="h-5 w-5" /></button>}
                 </div>
 
                 <div className="border-t border-sky-100 p-4 dark:border-slate-800">

@@ -13,16 +13,17 @@ use App\Models\Bill;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
     public function stats()
     {
-        $today = Carbon::today();
-        $weekStart = Carbon::now()->startOfWeek();
-
-        return response()->json(['success' => true, 'data' => [
+        $data = Cache::remember('dashboard:stats', now()->addSeconds(10), function () {
+            $today = Carbon::today();
+            $weekStart = Carbon::now()->startOfWeek();
+            return [
             'total_clients' => Client::count(),
             'active_clients' => Client::where('status', 'active')->count(),
             'new_clients_today' => Client::whereDate('created_at', $today)->count(),
@@ -42,13 +43,17 @@ class DashboardController extends Controller
             'outstanding_amount' => round((float) Bill::whereIn('status', ['pending', 'overdue'])->sum('amount'), 2),
             'total_intents' => Intent::count(),
             'active_intents' => Intent::where('is_active', true)->count(),
-        ]]);
+            ];
+        });
+
+        return response()->json(['success' => true, 'data' => $data]);
     }
 
     public function recentMessages(Request $request)
     {
         $limit = min((int) $request->input('limit', 20), 100);
-        $messages = Message::with('conversation.client')->latest()->limit($limit)->get()->map(function ($message) {
+        $messages = Cache::remember("dashboard:recent:{$limit}", now()->addSeconds(10), function () use ($limit) {
+            return Message::with('conversation.client')->latest()->limit($limit)->get()->map(function ($message) {
             return [
                 'id' => $message->id,
                 'sender' => $message->sender,
@@ -59,6 +64,7 @@ class DashboardController extends Controller
                 'whatsapp_number' => $message->conversation?->client?->whatsapp_number ?? 'N/A',
                 'created_at' => $message->created_at?->diffForHumans(),
             ];
+            });
         });
 
         return response()->json(['success' => true, 'data' => $messages]);
@@ -66,12 +72,12 @@ class DashboardController extends Controller
 
     public function topIntents()
     {
-        $intents = Message::whereNotNull('intent')
+        $intents = Cache::remember('dashboard:intents', now()->addSeconds(10), fn () => Message::whereNotNull('intent')
             ->select('intent', DB::raw('COUNT(*) as count'))
             ->groupBy('intent')
             ->orderByDesc('count')
             ->limit(8)
-            ->get();
+            ->get());
 
         return response()->json(['success' => true, 'data' => $intents]);
     }

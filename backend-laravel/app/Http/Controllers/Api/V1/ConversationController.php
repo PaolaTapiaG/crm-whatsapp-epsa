@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Conversation;
 use App\Models\Message;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ConversationController extends Controller
 {
@@ -113,6 +114,18 @@ class ConversationController extends Controller
             'success' => true,
             'data' => $conversation->fresh()
         ]);
+    }
+
+    public function destroy($id)
+    {
+        DB::transaction(function () use ($id) {
+            $conversation = Conversation::findOrFail($id);
+            $conversation->messages()->delete();
+            $conversation->tickets()->delete();
+            $conversation->delete();
+        });
+
+        return response()->json(['success' => true, 'message' => 'Conversación eliminada correctamente.']);
     }
 
     /**

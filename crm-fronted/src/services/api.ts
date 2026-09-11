@@ -113,6 +113,11 @@ export const api = {
     return response.data;
   },
 
+  async deleteConversation(id: string) {
+    const response = await axios.delete(`${V1_URL}/conversations/${id}`);
+    return response.data;
+  },
+
   async getOperatorConversations() {
     const response = await requestWithRetry(() => axios.get(`${V1_URL}/operator/pending`));
     return Array.isArray(response.data?.data) ? response.data.data : [];

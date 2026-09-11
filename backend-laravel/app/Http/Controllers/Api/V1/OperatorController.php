@@ -35,10 +35,17 @@ class OperatorController extends Controller
         $conversation = Conversation::with('client')->findOrFail($conversationId);
         $conversationIds = Conversation::where('client_id', $conversation->client_id)->pluck('id');
 
+        $messages = Message::whereIn('conversation_id', $conversationIds)
+            ->latest('created_at')
+            ->limit(200)
+            ->get()
+            ->sortBy('created_at')
+            ->values();
+
         return response()->json([
             'success' => true,
             'conversation' => $conversation,
-            'data' => Message::whereIn('conversation_id', $conversationIds)->oldest()->get(),
+            'data' => $messages,
         ]);
     }
 
