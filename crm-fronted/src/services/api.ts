@@ -9,8 +9,22 @@ const V1_URL = import.meta.env.PROD
   : configuredApiUrl
     ? `${configuredApiUrl}/api/v1`
     : API_BASE_URL;
-// Keep a stalled free-tier backend from accumulating requests in every open CRM tab.
-axios.defaults.timeout = 15000;
+axios.defaults.timeout = 30000;
+
+const wait = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+async function requestWithRetry<T>(request: () => Promise<T>, attempts = 3): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return await request();
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts - 1) await wait(1500 * (attempt + 1));
+    }
+  }
+  throw lastError;
+}
 
 export const api = {
   async sendMessage(phoneNumber: string, message: string, sessionId?: string): Promise<ApiResponse> {
@@ -32,7 +46,7 @@ export const api = {
 
   async checkHealth(): Promise<HealthStatus> {
     try {
-      const response = await axios.get(`${V1_URL}/whatsapp/status`);
+      const response = await requestWithRetry(() => axios.get(`${V1_URL}/whatsapp/status`));
       return { success: Boolean(response.data?.success), backend: 'connected', data: response.data };
     } catch (error: any) {
       return {
@@ -44,37 +58,37 @@ export const api = {
   },
 
   async getDashboardStats(): Promise<DashboardStats> {
-    const response = await axios.get(`${V1_URL}/dashboard/stats`);
+    const response = await requestWithRetry(() => axios.get(`${V1_URL}/dashboard/stats`));
     return response.data.data;
   },
 
   async getRecentDashboardMessages(limit = 12): Promise<DashboardMessage[]> {
-    const response = await axios.get(`${V1_URL}/dashboard/recent-messages`, { params: { limit } });
+    const response = await requestWithRetry(() => axios.get(`${V1_URL}/dashboard/recent-messages`, { params: { limit } }));
     return response.data.data;
   },
 
   async getTopIntents(): Promise<DashboardIntent[]> {
-    const response = await axios.get(`${V1_URL}/dashboard/top-intents`);
+    const response = await requestWithRetry(() => axios.get(`${V1_URL}/dashboard/top-intents`));
     return response.data.data;
   },
 
   async getIaStatus(): Promise<DashboardIaStatus> {
-    const response = await axios.get(`${V1_URL}/dashboard/ia-status`);
+    const response = await requestWithRetry(() => axios.get(`${V1_URL}/dashboard/ia-status`));
     return response.data.data;
   },
 
   async getAdminResource(resource: 'clients' | 'conversations' | 'tickets', params: Record<string, string | number> = {}) {
-    const response = await axios.get(`${V1_URL}/${resource}`, { params });
+    const response = await requestWithRetry(() => axios.get(`${V1_URL}/${resource}`, { params }));
     return response.data.data;
   },
 
   async getAdminIntents() {
-    const response = await axios.get(`${V1_URL}/intents`, { params: { per_page: 100 } });
+    const response = await requestWithRetry(() => axios.get(`${V1_URL}/intents`, { params: { per_page: 100 } }));
     return response.data.data;
   },
 
   async getConversationMessages(id: string) {
-    const response = await axios.get(`${V1_URL}/conversations/${id}/messages`);
+    const response = await requestWithRetry(() => axios.get(`${V1_URL}/conversations/${id}/messages`));
     return response.data.data;
   },
 
@@ -85,12 +99,12 @@ export const api = {
   },
 
   async getOperatorConversations() {
-    const response = await axios.get(`${V1_URL}/operator/pending`);
+    const response = await requestWithRetry(() => axios.get(`${V1_URL}/operator/pending`));
     return Array.isArray(response.data?.data) ? response.data.data : [];
   },
 
   async getOperatorMessages(id: string) {
-    const response = await axios.get(`${V1_URL}/operator/conversation/${id}/messages`);
+    const response = await requestWithRetry(() => axios.get(`${V1_URL}/operator/conversation/${id}/messages`));
     return {
       ...response.data,
       data: Array.isArray(response.data?.data) ? response.data.data : [],
