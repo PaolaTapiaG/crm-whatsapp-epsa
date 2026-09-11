@@ -40,6 +40,14 @@ const defaultHours: DayHours[] = [
 
 const field = 'mt-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-sky-500';
 
+const waterDropIcon = L.divIcon({
+  className: 'water-drop-marker',
+  html: '<span aria-hidden="true">&#128167;</span>',
+  iconSize: [34, 34],
+  iconAnchor: [17, 30],
+  popupAnchor: [0, -30],
+});
+
 interface InteractiveMapProps {
   position: { latitude: number; longitude: number };
   onPositionChange: (position: { latitude: number; longitude: number }) => void;
@@ -56,7 +64,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ position, onPositionCha
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',
     }).addTo(map);
-    const marker = L.marker([position.latitude, position.longitude], { draggable: true }).addTo(map);
+    const marker = L.marker([position.latitude, position.longitude], { draggable: true, icon: waterDropIcon }).addTo(map);
     marker.on('dragend', () => {
       const point = marker.getLatLng();
       onPositionChange({ latitude: point.lat, longitude: point.lng });
@@ -67,6 +75,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ position, onPositionCha
     });
     mapRef.current = map;
     markerRef.current = marker;
+    window.setTimeout(() => map.invalidateSize(), 100);
     return () => {
       map.remove();
       mapRef.current = null;
@@ -103,7 +112,15 @@ const ProfilePage: React.FC = () => {
       setProfile({ ...defaults, ...storedProfile });
       setHours(storedHours ? JSON.parse(storedHours) : storedProfile.hours || defaultHours);
       setMapQuery(storedProfile.address || '');
-      if (storedProfile.mapPosition) setMapPosition(storedProfile.mapPosition);
+      if (storedProfile.mapPosition) {
+        setMapPosition(storedProfile.mapPosition);
+      } else {
+        const storedLocation = localStorage.getItem('water-crm-company-location');
+        if (storedLocation) {
+          const location = JSON.parse(storedLocation);
+          if (location.latitude && location.longitude) setMapPosition({ latitude: Number(location.latitude), longitude: Number(location.longitude) });
+        }
+      }
     } else if (storedHours) {
       setHours(JSON.parse(storedHours));
     }
@@ -187,6 +204,13 @@ const ProfilePage: React.FC = () => {
         throw new Error(`WhatsApp no confirmó la actualización del perfil: ${details}`);
       }
       localStorage.setItem('water-crm-profile', JSON.stringify({ ...profile, hours, mapPosition }));
+      localStorage.setItem('water-crm-profile-hours', JSON.stringify(hours));
+      localStorage.setItem('water-crm-company-location', JSON.stringify({
+        latitude: String(mapPosition.latitude),
+        longitude: String(mapPosition.longitude),
+        name: profile.name,
+        address: profile.address,
+      }));
       setPhotoFile(undefined);
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2500);
