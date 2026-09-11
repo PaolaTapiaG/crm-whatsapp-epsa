@@ -115,7 +115,10 @@ const ProfilePage: React.FC = () => {
         description: profile.about,
         website: profile.website,
       }, photoFile);
-      if (!response?.success) throw new Error(response?.error || 'WhatsApp no confirmó la actualización del perfil.');
+      if (!response?.success) {
+        const details = response?.error?.message || response?.error?.error_user_msg || response?.error || 'Respuesta vacía del backend.';
+        throw new Error(`WhatsApp no confirmó la actualización del perfil: ${details}`);
+      }
       localStorage.setItem('water-crm-profile', JSON.stringify({ ...profile, hours }));
       setPhotoFile(undefined);
       setSaved(true);

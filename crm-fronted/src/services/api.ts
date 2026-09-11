@@ -65,7 +65,8 @@ export const api = {
     if (profile.website) form.append('website', profile.website);
     if (photo) form.append('photo', photo);
     const response = await axios.post(`${V1_URL}/whatsapp/business-profile`, form);
-    return response.data;
+    const payload = response.data;
+    return payload?.data?.success !== undefined ? payload.data : payload;
   },
 
   async getWhatsAppProfile() {

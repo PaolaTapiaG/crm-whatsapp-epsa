@@ -326,7 +326,7 @@ class WhatsAppController extends Controller
 
         $result = $this->whatsAppAPIService->updateBusinessProfile($data, $request->file('photo'));
 
-        return response()->json(['success' => true, 'data' => $result]);
+        return response()->json($result);
     }
 
     public function businessProfile()
