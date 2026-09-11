@@ -63,10 +63,12 @@ class WhatsAppService
 
             $normalizedText = $this->normalizeText($data['text'] ?? '');
             $isMenuOption = (bool) preg_match('/^(?:opcion\s*)?[1-5a-e]$/', $normalizedText);
+            $isGreeting = (bool) preg_match('/^(hola|buenas(?: dias| tardes| noches)?|hey|que tal)\b/', $normalizedText);
 
             if ($conversation->status === 'transferred'
                 && (($conversation->context ?? [])['waiting_for'] ?? null) === null
-                && !$isMenuOption) {
+                && !$isMenuOption
+                && !$isGreeting) {
                 $client->update(['last_interaction_at' => now()]);
 
                 return [
@@ -77,6 +79,10 @@ class WhatsAppService
                     'session_id' => $conversation->session_id,
                     'analysis' => ['intent' => 'operador', 'confidence' => 100],
                 ];
+            }
+
+            if ($conversation->status === 'transferred' && $isGreeting) {
+                $conversation->update(['status' => 'active', 'ended_at' => null]);
             }
 
             $nameChange = $this->handleNameChangeCommand($client, $conversation, $data['text'] ?? '');
