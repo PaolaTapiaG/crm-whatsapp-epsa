@@ -31,7 +31,6 @@ const field = 'mt-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 
 const ProfilePage: React.FC = () => {
   const [profile, setProfile] = useState<Profile>(defaults);
   const [saved, setSaved] = useState(false);
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem('water-crm-profile');
@@ -48,14 +47,19 @@ const ProfilePage: React.FC = () => {
   };
   const save = () => {
     localStorage.setItem('water-crm-profile', JSON.stringify(profile));
+    localStorage.setItem('water-crm-company-profile', JSON.stringify({
+      displayName: profile.name,
+      role: profile.role,
+      photo: profile.photo,
+    }));
+    window.dispatchEvent(new CustomEvent('water-crm-profile-change'));
     setSaved(true);
     window.setTimeout(() => setSaved(false), 2500);
   };
 
   return <div className="min-h-screen bg-slate-950 px-4 py-5 text-slate-100 md:ml-64 md:px-8">
-    <AdminSidebar mobileOpen={mobileSidebarOpen} onCloseMobile={() => setMobileSidebarOpen(false)} />
+    <AdminSidebar />
     <main className="mx-auto max-w-5xl">
-      <button onClick={() => setMobileSidebarOpen(true)} className="mb-4 rounded-md border border-slate-700 px-3 py-2 text-sm text-slate-200 md:hidden">Menu</button>
       <p className="text-xs uppercase tracking-[0.2em] text-sky-400">Perfil de WhatsApp</p>
       <h1 className="mt-2 text-3xl font-semibold">Perfil del operador</h1>
       <p className="mt-1 text-sm text-slate-400">Información visible para organizar la atención y la ubicación de la oficina.</p>

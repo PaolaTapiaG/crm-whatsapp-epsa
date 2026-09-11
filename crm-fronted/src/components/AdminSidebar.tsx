@@ -41,13 +41,8 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
   soundEnabled,
   onToggleSound,
 }) => {
-  const [internalOpen, setInternalOpen] = useState(false);
   const [dark, setDark] = useState(() => localStorage.getItem('water-crm-theme') !== 'light');
-  const isOpen = mobileOpen ?? internalOpen;
-  const closeMobile = onCloseMobile ?? (() => setInternalOpen(false));
-  const mobileControlled = mobileOpen !== undefined;
-  const showDetails = !collapsed && (!mobileControlled || isOpen);
-  const sidebarWidth = mobileControlled ? (isOpen ? 'w-64' : 'w-14') : (collapsed ? 'w-16' : 'w-64');
+  const showDetails = !collapsed;
   const mapUrl = `https://www.openstreetmap.org/search?query=${encodeURIComponent(companyLocation?.address || companyLocation?.name || 'EPSA El Portillo')}`;
   const lookupLocation = async () => {
     if (!companyLocation) return;
@@ -72,8 +67,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
   }, []);
 
   return <>
-  {isOpen && <button aria-label="Cerrar menú" onClick={closeMobile} className="fixed inset-0 z-20 bg-slate-950/60 md:hidden" />}
-  <aside className={`fixed inset-y-0 left-0 z-30 flex flex-col overflow-y-auto border-r border-sky-200 bg-white text-slate-900 shadow-sm transition-[width,transform] duration-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white ${sidebarWidth} translate-x-0`}>
+  <aside className={`fixed inset-y-0 left-0 z-30 flex flex-col overflow-y-auto border-r border-sky-200 bg-white text-slate-900 shadow-sm transition-[width] duration-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white ${collapsed ? 'w-16' : 'w-64'}`}>
     <div className={`border-b border-sky-100 py-6 dark:border-slate-800 ${collapsed ? 'px-2' : 'px-6'}`}>
       <div className="flex items-center justify-between gap-2">
         {showDetails && <p className="text-xs font-semibold uppercase text-sky-600">Water CRM IA</p>}
@@ -93,7 +87,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
           to={item.path}
           end={item.end}
           title={collapsed ? item.label : undefined}
-          onClick={closeMobile}
+          onClick={onCloseMobile}
           className={({ isActive }) => `flex items-center rounded-md border-l-2 py-3 text-sm transition-colors ${collapsed ? 'justify-center px-2' : 'gap-3 px-3'} ${isActive ? 'border-sky-500 bg-sky-50 text-sky-800 dark:bg-sky-950/60 dark:text-sky-100' : 'border-transparent text-slate-600 hover:bg-sky-50 hover:text-sky-700 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-slate-200'}`}
         >
           <Icon className="h-4 w-4 text-sky-500" />
@@ -146,7 +140,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
     )}
     <div className={`border-t border-sky-100 py-5 dark:border-slate-800 ${collapsed ? 'px-2 text-center' : 'px-6'}`}>
       <button title="Cambiar modo claro/oscuro" onClick={() => { const next = !dark; setDark(next); window.dispatchEvent(new CustomEvent('water-crm-theme-change', { detail: next })); }} className="mb-4 flex w-full items-center justify-center gap-2 rounded-md border border-sky-200 px-2 py-2 text-xs text-sky-600 dark:border-slate-700 dark:text-sky-300">{dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}{!collapsed && (dark ? 'Modo claro' : 'Modo oscuro')}</button>
-      <NavLink to="/" title="Abrir CRM principal" onClick={closeMobile} className="text-xs text-sky-600 hover:text-sky-800 dark:text-sky-300">{showDetails ? 'Abrir CRM principal' : '↗'}</NavLink>
+      <NavLink to="/" title="Abrir CRM principal" onClick={onCloseMobile} className="text-xs text-sky-600 hover:text-sky-800 dark:text-sky-300">{showDetails ? 'Abrir CRM principal' : '↗'}</NavLink>
     </div>
   </aside>
   </>

@@ -16,7 +16,6 @@ import {
   Sun,
   Users,
   XCircle,
-  Menu,
 } from 'lucide-react';
 import AdminSidebar from '../components/AdminSidebar';
 import { api } from '../services/api';
@@ -113,6 +112,16 @@ const readStored = <T,>(key: string, fallback: T): T => {
   }
 };
 
+const readCompanyProfile = () => {
+  const stored = readStored('water-crm-company-profile', { displayName: '', role: '', photo: '' });
+  const profile = readStored('water-crm-profile', { name: 'EPSA El Portillo', role: 'Servicio de agua potable', photo: '' });
+  return {
+    displayName: stored.displayName || profile.name,
+    role: stored.role || profile.role,
+    photo: stored.photo || profile.photo,
+  };
+};
+
 const conversationActivityTime = (conversation: Conversation): number => {
   const activity = conversation.last_message?.created_at || conversation.updated_at;
   const timestamp = activity ? Date.parse(activity) : 0;
@@ -128,7 +137,6 @@ const OperatorChatPage: React.FC = () => {
   const [filter, setFilter] = useState<ChatFilter>('active');
   const [mobileView, setMobileView] = useState<MobileView>('chats');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('water-crm-sidebar') === 'collapsed');
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('water-crm-theme') !== 'light');
   const [qr, setQr] = useState<File | null>(null);
   const [invoice, setInvoice] = useState(initialInvoice);
@@ -136,7 +144,7 @@ const OperatorChatPage: React.FC = () => {
   const [noticeRecipients, setNoticeRecipients] = useState('');
   const [noticeImage, setNoticeImage] = useState<File | null>(null);
   const [quickRepliesOpen, setQuickRepliesOpen] = useState(false);
-  const [profile, setProfile] = useState(() => readStored('water-crm-company-profile', { displayName: 'EPSA El Portillo', role: 'Servicio de agua potable', photo: '' }));
+  const [profile, setProfile] = useState(readCompanyProfile);
   const [location, setLocation] = useState(() => readStored('water-crm-company-location', {
     latitude: '-17.3895',
     longitude: '-66.1568',
@@ -157,6 +165,12 @@ const OperatorChatPage: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('water-crm-company-profile', JSON.stringify(profile));
   }, [profile]);
+
+  useEffect(() => {
+    const syncProfile = () => setProfile(readCompanyProfile());
+    window.addEventListener('water-crm-profile-change', syncProfile);
+    return () => window.removeEventListener('water-crm-profile-change', syncProfile);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('water-crm-company-location', JSON.stringify(location));
@@ -351,8 +365,6 @@ const OperatorChatPage: React.FC = () => {
       <AdminSidebar
         collapsed={sidebarCollapsed}
         onToggle={toggleSidebar}
-        mobileOpen={mobileSidebarOpen}
-        onCloseMobile={() => setMobileSidebarOpen(false)}
         companyProfile={profile}
         onCompanyProfileChange={setProfile}
         companyLocation={location}
@@ -360,7 +372,7 @@ const OperatorChatPage: React.FC = () => {
         soundEnabled={soundEnabled}
         onToggleSound={toggleSound}
       />
-      <main className={`mx-auto flex h-full max-w-[1600px] flex-col px-3 py-3 pl-16 transition-[margin] duration-200 sm:px-4 sm:pl-16 md:px-6 md:py-5 md:pl-6 ${sidebarCollapsed ? 'md:ml-16' : 'md:ml-64'}`}>
+      <main className={`mx-auto flex h-full max-w-[1800px] flex-col px-3 py-3 pl-16 transition-[margin] duration-200 sm:px-4 sm:pl-16 md:px-6 md:py-5 md:pl-6 ${sidebarCollapsed ? 'md:ml-16' : 'md:ml-64'}`}>
         <header className="mb-5 flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase text-sky-600 dark:text-sky-300">Chat WA y operaciones</p>
@@ -368,7 +380,6 @@ const OperatorChatPage: React.FC = () => {
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Un chat por numero, historial completo, facturas, QR, avisos y plantillas.</p>
           </div>
           <div className="flex items-center gap-2">
-            <button title="Abrir menú" onClick={() => setMobileSidebarOpen(true)} className="rounded-md border border-sky-200 p-2 text-sky-700 dark:border-slate-700 dark:text-sky-200 md:hidden"><Menu className="h-4 w-4" /></button>
             <button title="Activar notificaciones" onClick={enableNotifications} className="rounded-md border border-sky-200 p-2 text-sky-700 dark:border-slate-700 dark:text-sky-200">
               <Bell className="h-4 w-4" />
             </button>
@@ -394,7 +405,7 @@ const OperatorChatPage: React.FC = () => {
           ))}
         </nav>
 
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 md:grid-cols-[320px_minmax(420px,1fr)] xl:grid-cols-[340px_minmax(460px,1fr)_380px] xl:gap-4">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 md:grid-cols-[280px_minmax(500px,1fr)] xl:grid-cols-[300px_minmax(620px,1fr)_320px] xl:gap-4">
           <section className={`${panelBase} ${mobileView === 'chats' ? 'flex' : 'hidden'} min-h-0 flex-col md:flex`}>
             <div className="border-b border-sky-100 p-4 dark:border-slate-800">
               <div className="relative">
