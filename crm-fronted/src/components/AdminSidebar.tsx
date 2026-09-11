@@ -11,7 +11,7 @@ const items = [
   { path: '/admin/ia-monitor', label: 'Monitor IA', icon: Bot },
   { path: '/admin/intents', label: 'Intenciones', icon: Sparkles },
   { path: '/admin/settings', label: 'Configuración', icon: Settings },
-  { path: '/admin/profile', label: 'Perfil del operador', icon: UserRound },
+  { path: '/admin/profile', label: 'Perfil', icon: UserRound },
 ];
 
 interface AdminSidebarProps {

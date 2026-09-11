@@ -103,7 +103,17 @@ class WhatsAppAPIService
             throw new \RuntimeException($response->json('error.message') ?? 'WhatsApp rechazó la consulta del perfil.');
         }
 
-        return ['success' => true, 'data' => $response->json('data.0', $response->json())];
+        $profile = $response->json('data.0', $response->json());
+        $phoneResponse = Http::connectTimeout(2)->timeout(10)
+            ->withToken($this->accessToken)
+            ->acceptJson()
+            ->get("{$this->apiUrl}/{$this->phoneNumberId}", ['fields' => 'verified_name']);
+
+        if ($phoneResponse->successful() && $phoneResponse->json('verified_name')) {
+            $profile['name'] = $phoneResponse->json('verified_name');
+        }
+
+        return ['success' => true, 'data' => $profile];
     }
 
     public function downloadIncomingMedia(string $mediaId, string $extension = 'bin'): ?string
