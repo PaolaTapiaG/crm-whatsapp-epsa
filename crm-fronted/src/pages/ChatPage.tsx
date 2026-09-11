@@ -1,27 +1,14 @@
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import ChatHeader from '../components/ChatHeader';
 import MessageBubble from '../components/MessageBubble';
 import TypingIndicator from '../components/TypingIndicator';
 import MessageInput from '../components/MessageInput';
 import PhoneInput from '../components/PhoneInput';
 import { useChatStore } from '../store/chatStore';
-import { api } from '../services/api';
 
 const ChatPage: React.FC = () => {
-  const { messages, isTyping, setIsConnected } = useChatStore();
-
-  useEffect(() => {
-    const checkConnection = async () => {
-      const health = await api.checkHealth();
-      setIsConnected(health.backend === 'connected');
-    };
-
-    checkConnection();
-    const interval = setInterval(checkConnection, 30000);
-    
-    return () => clearInterval(interval);
-  }, [setIsConnected]);
+  const { messages, isTyping } = useChatStore();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center p-4">
