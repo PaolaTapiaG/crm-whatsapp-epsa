@@ -69,19 +69,16 @@ const ProfilePage: React.FC = () => {
     setSaving(true);
     setSaveError('');
     localStorage.setItem('water-crm-profile', JSON.stringify(profile));
-    localStorage.setItem('water-crm-company-profile', JSON.stringify({
-      displayName: profile.name,
-      role: profile.role,
-      photo: profile.photo,
-    }));
-    window.dispatchEvent(new CustomEvent('water-crm-profile-change'));
     try {
-      await api.updateWhatsAppProfile({
+      const response = await api.updateWhatsAppProfile({
         about: profile.about,
         address: profile.address,
         description: `${profile.name} - ${profile.role}. Horario: ${profile.weekdayHours}; sábados: ${profile.saturdayHours}.`,
         website: profile.website,
       }, photoFile);
+      if (!response?.success) throw new Error(response?.error || 'WhatsApp no confirmó la actualización del perfil.');
+      localStorage.setItem('water-crm-profile', JSON.stringify(profile));
+      setPhotoFile(undefined);
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2500);
     } catch (error: any) {
@@ -95,9 +92,9 @@ const ProfilePage: React.FC = () => {
     <AdminSidebar />
     <main className="mx-auto max-w-5xl">
       <p className="text-xs uppercase tracking-[0.2em] text-sky-400">Perfil de WhatsApp</p>
-      <h1 className="mt-2 text-3xl font-semibold">Perfil del operador</h1>
-      <p className="mt-1 text-sm text-slate-400">Información visible para organizar la atención y la ubicación de la oficina.</p>
-      {saved && <div className="mt-5 border border-emerald-700 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-300">Perfil guardado en este navegador.</div>}
+      <h1 className="mt-2 text-3xl font-semibold">Perfil de WhatsApp Business</h1>
+      <p className="mt-1 text-sm text-slate-400">Este es el único lugar para modificar la información y la foto que ven tus clientes en WhatsApp.</p>
+      {saved && <div className="mt-5 border border-emerald-700 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-300">Meta confirmó la actualización del perfil de WhatsApp.</div>}
       {saveError && <div className="mt-5 border border-rose-700 bg-rose-950/50 px-4 py-3 text-sm text-rose-300">{saveError}</div>}
       <div className="mt-6 grid gap-6 lg:grid-cols-[280px_1fr]">
         <section className="border border-slate-800 bg-slate-900 p-5">

@@ -112,16 +112,6 @@ const readStored = <T,>(key: string, fallback: T): T => {
   }
 };
 
-const readCompanyProfile = () => {
-  const stored = readStored('water-crm-company-profile', { displayName: '', role: '', photo: '' });
-  const profile = readStored('water-crm-profile', { name: 'EPSA El Portillo', role: 'Servicio de agua potable', photo: '' });
-  return {
-    displayName: stored.displayName || profile.name,
-    role: stored.role || profile.role,
-    photo: stored.photo || profile.photo,
-  };
-};
-
 const conversationActivityTime = (conversation: Conversation): number => {
   const activity = conversation.last_message?.created_at || conversation.updated_at;
   const timestamp = activity ? Date.parse(activity) : 0;
@@ -144,7 +134,6 @@ const OperatorChatPage: React.FC = () => {
   const [noticeRecipients, setNoticeRecipients] = useState('');
   const [noticeImage, setNoticeImage] = useState<File | null>(null);
   const [quickRepliesOpen, setQuickRepliesOpen] = useState(false);
-  const [profile, setProfile] = useState(readCompanyProfile);
   const [location, setLocation] = useState(() => readStored('water-crm-company-location', {
     latitude: '-17.3895',
     longitude: '-66.1568',
@@ -161,16 +150,6 @@ const OperatorChatPage: React.FC = () => {
     document.documentElement.classList.toggle('dark', darkMode);
     localStorage.setItem('water-crm-theme', darkMode ? 'dark' : 'light');
   }, [darkMode]);
-
-  useEffect(() => {
-    localStorage.setItem('water-crm-company-profile', JSON.stringify(profile));
-  }, [profile]);
-
-  useEffect(() => {
-    const syncProfile = () => setProfile(readCompanyProfile());
-    window.addEventListener('water-crm-profile-change', syncProfile);
-    return () => window.removeEventListener('water-crm-profile-change', syncProfile);
-  }, []);
 
   useEffect(() => {
     localStorage.setItem('water-crm-company-location', JSON.stringify(location));
@@ -365,10 +344,6 @@ const OperatorChatPage: React.FC = () => {
       <AdminSidebar
         collapsed={sidebarCollapsed}
         onToggle={toggleSidebar}
-        companyProfile={profile}
-        onCompanyProfileChange={setProfile}
-        companyLocation={location}
-        onCompanyLocationChange={setLocation}
         soundEnabled={soundEnabled}
         onToggleSound={toggleSound}
       />
