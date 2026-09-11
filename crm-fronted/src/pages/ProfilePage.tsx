@@ -1,5 +1,7 @@
-import React, { ChangeEvent, useEffect, useState } from 'react';
+import React, { ChangeEvent, useEffect, useRef, useState } from 'react';
 import { Camera, MapPin, Save, Search } from 'lucide-react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import AdminSidebar from '../components/AdminSidebar';
 import { api } from '../services/api';
 
@@ -38,6 +40,50 @@ const defaultHours: DayHours[] = [
 
 const field = 'mt-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-sky-500';
 
+interface InteractiveMapProps {
+  position: { latitude: number; longitude: number };
+  onPositionChange: (position: { latitude: number; longitude: number }) => void;
+}
+
+const InteractiveMap: React.FC<InteractiveMapProps> = ({ position, onPositionChange }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const markerRef = useRef<L.Marker | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) return;
+    const map = L.map(containerRef.current).setView([position.latitude, position.longitude], 16);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+    }).addTo(map);
+    const marker = L.marker([position.latitude, position.longitude], { draggable: true }).addTo(map);
+    marker.on('dragend', () => {
+      const point = marker.getLatLng();
+      onPositionChange({ latitude: point.lat, longitude: point.lng });
+    });
+    map.on('click', (event) => {
+      marker.setLatLng(event.latlng);
+      onPositionChange({ latitude: event.latlng.lat, longitude: event.latlng.lng });
+    });
+    mapRef.current = map;
+    markerRef.current = marker;
+    return () => {
+      map.remove();
+      mapRef.current = null;
+      markerRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!mapRef.current || !markerRef.current) return;
+    const point: L.LatLngExpression = [position.latitude, position.longitude];
+    markerRef.current.setLatLng(point);
+    mapRef.current.panTo(point);
+  }, [position.latitude, position.longitude]);
+
+  return <div ref={containerRef} className="h-56 w-full" />;
+};
+
 const ProfilePage: React.FC = () => {
   const [profile, setProfile] = useState<Profile>(defaults);
   const [saved, setSaved] = useState(false);
@@ -57,6 +103,7 @@ const ProfilePage: React.FC = () => {
       setProfile({ ...defaults, ...storedProfile });
       setHours(storedHours ? JSON.parse(storedHours) : storedProfile.hours || defaultHours);
       setMapQuery(storedProfile.address || '');
+      if (storedProfile.mapPosition) setMapPosition(storedProfile.mapPosition);
     } else if (storedHours) {
       setHours(JSON.parse(storedHours));
     }
@@ -96,6 +143,20 @@ const ProfilePage: React.FC = () => {
       setSearchingAddress(false);
     }
   };
+  const selectMapPosition = async (position: { latitude: number; longitude: number }) => {
+    setMapPosition(position);
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${position.latitude}&lon=${position.longitude}`, { headers: { Accept: 'application/json' } });
+      const result = await response.json();
+      const address = result.display_name;
+      if (address) {
+        setMapQuery(address);
+        update('address', address);
+      }
+    } catch {
+      setSaveError('Se seleccionó la ubicación, pero no se pudo obtener su dirección.');
+    }
+  };
   const uploadPhoto = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -125,7 +186,7 @@ const ProfilePage: React.FC = () => {
           || (response ? JSON.stringify(response) : 'Respuesta vacía del backend.');
         throw new Error(`WhatsApp no confirmó la actualización del perfil: ${details}`);
       }
-      localStorage.setItem('water-crm-profile', JSON.stringify({ ...profile, hours }));
+      localStorage.setItem('water-crm-profile', JSON.stringify({ ...profile, hours, mapPosition }));
       setPhotoFile(undefined);
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2500);
@@ -157,7 +218,7 @@ const ProfilePage: React.FC = () => {
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <label className="text-xs text-slate-400 sm:col-span-2">Nombre<input value={profile.name} readOnly className={`${field} cursor-not-allowed opacity-70`} /></label>
             <label className="text-xs text-slate-400 sm:col-span-2">Descripción<textarea value={profile.about} onChange={(e) => update('about', e.target.value)} placeholder="Escribe una descripción para tus clientes" rows={3} className={field} /></label>
-            <div className="sm:col-span-2"><label className="text-xs text-slate-400">Dirección</label><div className="mt-2 flex gap-2"><input value={mapQuery} onChange={(e) => { setMapQuery(e.target.value); update('address', e.target.value); }} placeholder="Busca una dirección" className={field} /><button type="button" onClick={searchAddress} disabled={searchingAddress} title="Buscar dirección" className="mt-2 shrink-0 bg-sky-600 px-3 text-white disabled:opacity-50"><Search className="h-4 w-4" /></button></div><div className="mt-3 overflow-hidden border border-slate-700"><iframe title="Mapa de OpenStreetMap" className="h-56 w-full" src={`https://www.openstreetmap.org/export/embed.html?bbox=${mapPosition.longitude - 0.01}%2C${mapPosition.latitude - 0.01}%2C${mapPosition.longitude + 0.01}%2C${mapPosition.latitude + 0.01}&layer=mapnik&marker=${mapPosition.latitude}%2C${mapPosition.longitude}`} /></div></div>
+            <div className="sm:col-span-2"><label className="text-xs text-slate-400">Dirección</label><div className="mt-2 flex gap-2"><input value={mapQuery} onChange={(e) => { setMapQuery(e.target.value); update('address', e.target.value); }} placeholder="Busca una dirección" className={field} /><button type="button" onClick={searchAddress} disabled={searchingAddress} title="Buscar dirección" className="mt-2 shrink-0 bg-sky-600 px-3 text-white disabled:opacity-50"><Search className="h-4 w-4" /></button></div><p className="mt-2 text-xs text-slate-500">Haz clic en el mapa o arrastra el marcador para elegir el punto exacto.</p><div className="mt-3 overflow-hidden border border-slate-700"><InteractiveMap position={mapPosition} onPositionChange={selectMapPosition} /></div></div>
             <label className="text-xs text-slate-400 sm:col-span-2">Sitio web<input value={profile.website} onChange={(e) => update('website', e.target.value)} placeholder="https://..." className={field} /></label>
           </div>
           <div className="mt-6 border-t border-slate-800 pt-5"><h3 className="font-semibold">Horario</h3><p className="mt-1 text-xs text-slate-500">Configura los días y horas de atención. Se guardan en el CRM.</p><div className="mt-4 space-y-2">{hours.map((item, index) => <div key={item.day} className="grid grid-cols-[1fr_auto_1fr_1fr] items-center gap-2 text-sm"><span className="text-slate-300">{item.day}</span><input type="checkbox" checked={item.enabled} onChange={(e) => updateHour(index, { enabled: e.target.checked })} className="h-4 w-4 accent-sky-500" /><input type="time" value={item.open} disabled={!item.enabled} onChange={(e) => updateHour(index, { open: e.target.value })} className={`${field} mt-0 disabled:opacity-40`} /><input type="time" value={item.close} disabled={!item.enabled} onChange={(e) => updateHour(index, { close: e.target.value })} className={`${field} mt-0 disabled:opacity-40`} /></div>)}</div></div>

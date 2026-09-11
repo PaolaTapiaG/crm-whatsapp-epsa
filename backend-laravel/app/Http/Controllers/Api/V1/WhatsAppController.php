@@ -316,17 +316,27 @@ class WhatsAppController extends Controller
 
     public function updateBusinessProfile(Request $request)
     {
-        $data = $request->validate([
-            'about' => 'nullable|string|max:139',
-            'address' => 'nullable|string|max:256',
-            'description' => 'nullable|string|max:512',
-            'website' => 'nullable|url|max:256',
-            'photo' => 'nullable|file|image|mimes:jpg,jpeg,png|max:5120',
-        ]);
+        try {
+            $data = $request->validate([
+                'about' => 'nullable|string|max:139',
+                'address' => 'nullable|string|max:256',
+                'description' => 'nullable|string|max:512',
+                'website' => 'nullable|url|max:256',
+                'photo' => 'nullable|file|image|mimes:jpg,jpeg,png|max:5120',
+            ]);
 
-        $result = $this->whatsAppAPIService->updateBusinessProfile($data, $request->file('photo'));
+            return response()->json($this->whatsAppAPIService->updateBusinessProfile($data, $request->file('photo')));
+        } catch (\Throwable $exception) {
+            Log::channel('whatsapp')->error('Business profile update failed', [
+                'message' => $exception->getMessage(),
+                'trace' => $exception->getTraceAsString(),
+            ]);
 
-        return response()->json($result);
+            return response()->json([
+                'success' => false,
+                'error' => $exception->getMessage(),
+            ], 422);
+        }
     }
 
     public function businessProfile()

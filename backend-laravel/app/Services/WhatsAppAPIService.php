@@ -11,12 +11,14 @@ class WhatsAppAPIService
 {
     private string $apiUrl;
     private string $phoneNumberId;
+    private string $appId;
     private string $accessToken;
 
     public function __construct()
     {
         $this->apiUrl = rtrim((string) config('whatsapp.api_url'), '/');
         $this->phoneNumberId = (string) config('whatsapp.phone_number_id');
+        $this->appId = (string) config('whatsapp.app_id');
         $this->accessToken = (string) config('whatsapp.access_token');
     }
 
@@ -67,7 +69,7 @@ class WhatsAppAPIService
         ];
 
         if ($photo) {
-            $payload['profile_picture_handle'] = $this->uploadMedia($photo->getRealPath(), $photo->getMimeType() ?: 'image/jpeg');
+            $payload['profile_picture_handle'] = $this->uploadProfilePicture($photo);
         }
 
         $response = Http::connectTimeout(2)->timeout(10)
@@ -84,6 +86,43 @@ class WhatsAppAPIService
         }
 
         return ['success' => true, 'data' => $response->json()];
+    }
+
+    private function uploadProfilePicture(UploadedFile $photo): string
+    {
+        if ($this->appId === '') {
+            throw new \RuntimeException('Falta WHATSAPP_APP_ID en Render. Meta requiere el App ID para publicar la foto de perfil.');
+        }
+
+        $mime = $photo->getMimeType() ?: 'image/jpeg';
+        $contents = file_get_contents($photo->getRealPath());
+        if ($contents === false) {
+            throw new \RuntimeException('No se pudo leer la imagen seleccionada.');
+        }
+
+        $session = Http::connectTimeout(2)->timeout(10)
+            ->withToken($this->accessToken)
+            ->post("{$this->apiUrl}/{$this->appId}/uploads", [
+                'file_name' => $photo->getClientOriginalName(),
+                'file_length' => strlen($contents),
+                'file_type' => $mime,
+            ]);
+
+        if ($session->failed() || !$session->json('id')) {
+            throw new \RuntimeException($session->json('error.message') ?? 'Meta no pudo iniciar la carga de la foto.');
+        }
+
+        $upload = Http::connectTimeout(2)->timeout(20)
+            ->withToken($this->accessToken)
+            ->withHeaders(['file_offset' => '0'])
+            ->withBody($contents, $mime)
+            ->post("{$this->apiUrl}/{$session->json('id')}");
+
+        if ($upload->failed() || !$upload->json('h')) {
+            throw new \RuntimeException($upload->json('error.message') ?? 'Meta no pudo completar la carga de la foto.');
+        }
+
+        return (string) $upload->json('h');
     }
 
     public function getBusinessProfile(): array
