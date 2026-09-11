@@ -87,6 +87,19 @@ class OperatorController extends Controller
         return response()->json(['success' => true, 'data' => $result]);
     }
 
+    public function sendVoice(Request $request, string $conversationId)
+    {
+        $data = $request->validate(['to' => 'required|string', 'audio' => 'required|file|mimes:ogg,oga,mp3,wav,webm,mp4,m4a|max:10240']);
+        $result = $this->whatsApp->sendAudio($data['to'], $data['audio']);
+        Message::create([
+            'conversation_id' => $conversationId,
+            'sender' => 'human',
+            'text' => 'Mensaje de voz enviado',
+            'metadata' => ['kind' => 'audio', 'delivery' => $result['data'] ?? null],
+        ]);
+        return response()->json(['success' => true, 'data' => $result]);
+    }
+
     public function reviewPayment(Request $request, string $messageId)
     {
         $data = $request->validate(['status' => 'required|in:approved,rejected']);

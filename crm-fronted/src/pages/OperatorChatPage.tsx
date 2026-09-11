@@ -4,8 +4,10 @@ import {
   CheckCircle2,
   Clock3,
   ChevronDown,
+  Paperclip,
   FileText,
   ImagePlus,
+  Mic,
   MapPin,
   MessageCircle,
   Moon,
@@ -13,6 +15,7 @@ import {
   Trash2,
   Search,
   Send,
+  Smile,
   Settings,
   Sparkles,
   Sun,
@@ -52,6 +55,9 @@ const quickReplies = [
   'Por favor envie una foto clara del comprobante de pago por QR.',
   'Necesitamos su nombre completo para continuar con el menu de atencion.',
 ];
+
+const emojis = ['😀', '👍', '🙏', '💧', '✅', '📄', '💳', '⚠️'];
+const stickers = ['💧', '🚰', '🙏', '✅'];
 
 const templates = [
   {
@@ -128,7 +134,7 @@ const OperatorChatPage: React.FC = () => {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<ChatFilter>('active');
   const [mobileView, setMobileView] = useState<MobileView>('chats');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('water-crm-sidebar') === 'collapsed');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('water-crm-sidebar') !== 'expanded');
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('water-crm-theme') !== 'light');
   const [qr, setQr] = useState<File | null>(null);
   const [invoice, setInvoice] = useState(initialInvoice);
@@ -136,6 +142,13 @@ const OperatorChatPage: React.FC = () => {
   const [noticeRecipients, setNoticeRecipients] = useState('');
   const [noticeImage, setNoticeImage] = useState<File | null>(null);
   const [quickRepliesOpen, setQuickRepliesOpen] = useState(false);
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const [chatSearch, setChatSearch] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const [location, setLocation] = useState(() => readStored('water-crm-company-location', {
     latitude: '-17.3895',
     longitude: '-66.1568',
@@ -261,6 +274,10 @@ const OperatorChatPage: React.FC = () => {
   }, [conversations, filter, query]);
 
   const proofs = useMemo(() => messages.filter((message) => message.metadata?.kind === 'payment_proof'), [messages]);
+  const visibleMessages = useMemo(() => {
+    const normalized = chatSearch.trim().toLowerCase();
+    return normalized ? messages.filter((message) => message.text.toLowerCase().includes(normalized)) : messages;
+  }, [messages, chatSearch]);
 
   const sendText = async (content = text) => {
     if (!active || !content.trim()) return;
@@ -268,6 +285,44 @@ const OperatorChatPage: React.FC = () => {
     setText('');
     await loadMessages(active.id);
   };
+
+  const appendToMessage = (value: string) => setText((current) => `${current}${value}`);
+
+  const startVoiceRecording = async () => {
+    if (!active || !navigator.mediaDevices?.getUserMedia) {
+      setNotice('Este navegador no permite grabar audio.');
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (event) => { if (event.data.size) audioChunksRef.current.push(event.data); };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop());
+        const audio = new File([new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' })], 'mensaje-de-voz.webm', { type: recorder.mimeType || 'audio/webm' });
+        try {
+          await api.sendVoice(active.id, active.client?.whatsapp_number || '', audio);
+          await loadMessages(active.id);
+        } catch (error: any) {
+          setNotice(error.response?.data?.error || error.message || 'No se pudo enviar el audio.');
+        }
+      };
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setRecording(true);
+    } catch {
+      setNotice('No se obtuvo permiso para usar el micrófono.');
+    }
+  };
+
+  const stopVoiceRecording = () => {
+    mediaRecorderRef.current?.stop();
+    mediaRecorderRef.current = null;
+    setRecording(false);
+  };
+
+  const messageDay = (value: string) => new Date(value).toLocaleDateString('es-BO', { year: 'numeric', month: 'long', day: 'numeric' });
 
   const changeStatus = async (status: 'active' | 'transferred' | 'finished') => {
     if (!active) return;
@@ -463,7 +518,7 @@ const OperatorChatPage: React.FC = () => {
             </div>
           </section>
 
-          <section className={`${panelBase} ${mobileView === 'chat' ? 'flex' : 'hidden'} min-h-0 flex-col md:flex`}>
+          <section className={`${panelBase} ${mobileView === 'chat' ? 'flex' : 'hidden'} relative h-[calc(100dvh-8rem)] min-h-0 flex-col md:flex md:h-auto`}>
             {active ? (
               <>
                 <div className="flex items-center justify-between border-b border-sky-100 px-5 py-4 dark:border-slate-800">
@@ -472,21 +527,27 @@ const OperatorChatPage: React.FC = () => {
                     <p className="mt-1 text-xs text-slate-500">{active.client?.whatsapp_number} · {active.status} · historial visible</p>
                   </div>
                   <div className="flex gap-2">
+                    <button title="Buscar en este chat" onClick={() => setSearchOpen((open) => !open)} className="rounded-md border border-sky-200 p-2 text-sky-700 dark:border-slate-700 dark:text-sky-200"><Search className="h-4 w-4" /></button>
                     <button title="Enviar ubicacion" onClick={sendLocation} className="rounded-md border border-sky-200 p-2 text-sky-700 dark:border-slate-700 dark:text-sky-200"><MapPin className="h-4 w-4" /></button>
                     {active.status !== 'active' && <button title="Reactivar IA" onClick={() => changeStatus('active')} className="rounded-md border border-emerald-200 px-2 text-xs text-emerald-600 dark:border-emerald-900">Activar IA</button>}
                     {active.status !== 'transferred' && <button title="Transferir al operador" onClick={() => changeStatus('transferred')} className="rounded-md border border-amber-200 px-2 text-xs text-amber-600 dark:border-amber-900">Transferir</button>}
                     {active.status !== 'finished' && <button title="Finalizar conversación" onClick={() => changeStatus('finished')} className="rounded-md border border-rose-200 p-2 text-rose-600 dark:border-rose-900"><XCircle className="h-4 w-4" /></button>}
                   </div>
                 </div>
+                {searchOpen && <div className="border-b border-sky-100 bg-white px-4 py-2 dark:border-slate-800 dark:bg-slate-900"><input autoFocus value={chatSearch} onChange={(event) => setChatSearch(event.target.value)} placeholder="Buscar en los mensajes..." className={inputBase} /></div>}
 
-                <div ref={messagesPanelRef} onScroll={(event) => { const panel = event.currentTarget; setShowJumpToLatest(panel.scrollHeight - panel.scrollTop - panel.clientHeight > 180); }} className="relative flex-1 min-h-[55vh] space-y-3 overflow-y-auto bg-[#efeae2] p-3 dark:bg-slate-950 sm:p-5 md:min-h-0">
-                  {messages.map((message) => {
+                <div ref={messagesPanelRef} onScroll={(event) => { const panel = event.currentTarget; setShowJumpToLatest(panel.scrollHeight - panel.scrollTop - panel.clientHeight > 180); }} className="relative flex-1 min-h-0 space-y-3 overflow-y-auto bg-[#efeae2] p-3 dark:bg-slate-950 sm:p-5">
+                  {visibleMessages.map((message, index) => {
                     const outbound = ['human', 'bot'].includes(message.sender);
+                    const previous = visibleMessages[index - 1];
+                    const newDay = !previous || messageDay(previous.created_at) !== messageDay(message.created_at);
                     return (
-                      <div key={message.id} className={`flex ${outbound ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[88%] rounded-lg px-3 py-2 shadow-sm sm:max-w-[76%] ${outbound ? 'bg-[#d9fdd3] text-slate-900 dark:bg-[#005c4b] dark:text-white' : 'bg-white text-slate-900 dark:bg-slate-800 dark:text-slate-100'}`}>
+                      <React.Fragment key={message.id}>
+                        {newDay && <div className="sticky top-1 z-[1] mx-auto w-fit rounded-full bg-slate-700/80 px-3 py-1 text-[11px] text-white shadow">{messageDay(message.created_at)}</div>}
+                        <div className={`flex min-w-0 ${outbound ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`min-w-0 max-w-[92%] overflow-hidden rounded-lg px-3 py-2 shadow-sm sm:max-w-[76%] ${outbound ? 'bg-[#d9fdd3] text-slate-900 dark:bg-[#005c4b] dark:text-white' : 'bg-white text-slate-900 dark:bg-slate-800 dark:text-slate-100'}`}>
                           <p className={`text-[10px] uppercase ${outbound ? 'text-emerald-700 dark:text-emerald-100' : 'text-slate-400'}`}>{message.sender}</p>
-                          <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{message.text}</p>
+                          <p className="mt-1 break-words whitespace-pre-wrap text-sm leading-relaxed">{message.text}</p>
                           {message.metadata?.media_url && <a className="mt-3 block text-xs underline" href={message.metadata.media_url} target="_blank" rel="noreferrer">{message.metadata.kind === 'invoice' ? 'Abrir factura PDF' : message.metadata.kind === 'payment_qr' ? 'Abrir QR enviado' : 'Abrir comprobante'}</a>}
                           {message.metadata?.kind === 'payment_proof' && (
                             <div className="mt-3 flex gap-2">
@@ -497,12 +558,13 @@ const OperatorChatPage: React.FC = () => {
                           <p className={`mt-2 text-[10px] ${outbound ? 'text-sky-100' : 'text-slate-400'}`}>{new Date(message.created_at).toLocaleString()}</p>
                         </div>
                       </div>
+                      </React.Fragment>
                     );
                   })}
-                  {showJumpToLatest && <button title="Ir al último mensaje" onClick={() => { const panel = messagesPanelRef.current; if (panel) panel.scrollTo({ top: panel.scrollHeight, behavior: 'smooth' }); }} className="sticky bottom-3 left-full z-10 ml-auto flex h-10 w-10 items-center justify-center rounded-full bg-sky-600 text-white shadow-lg"><ChevronDown className="h-5 w-5" /></button>}
+                  {showJumpToLatest && <button title="Ir al último mensaje" onClick={() => { const panel = messagesPanelRef.current; if (panel) panel.scrollTo({ top: panel.scrollHeight, behavior: 'smooth' }); }} className="absolute bottom-4 right-4 z-20 flex h-11 w-11 items-center justify-center rounded-full border-2 border-white bg-sky-600 text-white shadow-xl"><ChevronDown className="h-5 w-5" /></button>}
                 </div>
 
-                <div className="border-t border-sky-100 p-4 dark:border-slate-800">
+                <div className="sticky bottom-0 z-10 border-t border-sky-100 bg-white p-3 dark:border-slate-800 dark:bg-slate-900 sm:p-4">
                   <div className="mb-3">
                     <button onClick={() => setQuickRepliesOpen((open) => !open)} className="rounded-md border border-sky-200 px-3 py-2 text-xs text-sky-700 dark:border-slate-700 dark:text-sky-200">
                       {quickRepliesOpen ? 'Ocultar respuestas rápidas' : 'Mostrar respuestas rápidas'}
@@ -513,9 +575,11 @@ const OperatorChatPage: React.FC = () => {
                       ))}
                     </div>}
                   </div>
-                  <div className="flex gap-2">
+                  {composerOpen && <div className="mb-3 flex flex-wrap gap-2 rounded-md border border-sky-100 bg-sky-50 p-2 dark:border-slate-700 dark:bg-slate-950"><button onClick={() => setMobileView('tools')} className="rounded-md border border-sky-200 px-3 py-2 text-xs text-sky-700 dark:border-slate-700 dark:text-sky-200"><QrCode className="mr-1 inline h-4 w-4" /> QR y factura</button><button onClick={() => setEmojiOpen((open) => !open)} className="rounded-md border border-sky-200 px-3 py-2 text-xs text-sky-700 dark:border-slate-700 dark:text-sky-200"><Smile className="mr-1 inline h-4 w-4" /> Emojis</button>{emojiOpen && <div className="flex items-center gap-1">{emojis.map((emoji) => <button key={emoji} onClick={() => appendToMessage(emoji)} className="p-1 text-xl">{emoji}</button>)}</div>}<span className="w-full text-[11px] text-slate-500">Stickers: {stickers.join(' ')}</span></div>}
+                  <div className="flex items-end gap-2">
+                    <button title="Herramientas y adjuntos" onClick={() => setComposerOpen((open) => !open)} className="rounded-md border border-sky-200 p-3 text-sky-700 dark:border-slate-700 dark:text-sky-200"><Paperclip className="h-4 w-4" /></button>
                     <input value={text} onChange={(event) => setText(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && sendText()} placeholder="Responder al cliente..." className={inputBase} />
-                    <button title="Enviar" onClick={() => sendText()} className="rounded-md bg-sky-600 px-4 text-white"><Send className="h-4 w-4" /></button>
+                    {text.trim() ? <button title="Enviar" onClick={() => sendText()} className="rounded-md bg-sky-600 px-4 text-white"><Send className="h-4 w-4" /></button> : <button title={recording ? 'Detener y enviar audio' : 'Grabar mensaje de voz'} onClick={recording ? stopVoiceRecording : startVoiceRecording} className={`rounded-md px-4 text-white ${recording ? 'bg-rose-600' : 'bg-sky-600'}`}><Mic className="h-4 w-4" /></button>}
                   </div>
                 </div>
               </>

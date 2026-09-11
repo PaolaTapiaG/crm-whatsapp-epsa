@@ -143,6 +143,14 @@ export const api = {
     return response.data;
   },
 
+  async sendVoice(conversationId: number, to: string, file: File) {
+    const form = new FormData();
+    form.append('to', to);
+    form.append('audio', file);
+    const response = await axios.post(`${V1_URL}/operator/conversation/${conversationId}/voice`, form);
+    return response.data;
+  },
+
   async reviewPayment(messageId: number, status: 'approved' | 'rejected') {
     const response = await axios.patch(`${V1_URL}/operator/payment/${messageId}`, { status });
     return response.data;

@@ -36,6 +36,12 @@ class WhatsAppAPIService
         return $this->send($to, ['type' => 'image', 'image' => ['id' => $mediaId]]);
     }
 
+    public function sendAudio(string $to, UploadedFile $file): array
+    {
+        $mediaId = $this->uploadMedia($file->getRealPath(), $file->getMimeType() ?: 'audio/ogg');
+        return $this->send($to, ['type' => 'audio', 'audio' => ['id' => $mediaId]]);
+    }
+
     public function sendDocument(string $to, string $path, string $filename): array
     {
         $mediaId = $this->uploadMedia($path, 'application/pdf');
