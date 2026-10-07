@@ -6,10 +6,19 @@
 @layer base {
   html {
     scrollbar-color: transparent transparent;
+    background-color: var(--bg-app);
   }
 
   body {
     @apply antialiased;
+    margin: 0;
+    background-color: var(--bg-app);
+    color: var(--text-primary);
+  }
+
+  html, body, #root {
+    min-height: 100%;
+    background-color: var(--bg-app);
   }
 
   * {
@@ -32,7 +41,7 @@
   }
 
   *:hover::-webkit-scrollbar-thumb {
-    background: rgba(14, 165, 233, 0.18);
+    background: rgba(17, 24, 39, 0.12);
   }
 }
 
@@ -40,6 +49,16 @@
   .ml-64 {
     margin-left: 0 !important;
   }
+}
+
+.crm-workspace,
+.crm-workspace * {
+  box-sizing: border-box;
+}
+
+.crm-workspace {
+  background-color: var(--bg-app);
+  color: var(--text-primary);
 }
 
 @layer components {

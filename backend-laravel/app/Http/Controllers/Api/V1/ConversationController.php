@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Events\ConversationStatusChanged;
 use App\Models\Conversation;
 use App\Models\Message;
 use Illuminate\Http\Request;
@@ -46,7 +47,13 @@ class ConversationController extends Controller
 
         // Ordenamiento
         $sortBy = $request->input('sort_by', 'updated_at');
+        $sortBy = in_array($sortBy, ['id', 'status', 'priority', 'started_at', 'updated_at'], true)
+            ? $sortBy
+            : 'updated_at';
         $sortOrder = $request->input('sort_order', 'desc');
+        $sortOrder = in_array(strtolower($sortOrder), ['asc', 'desc'], true)
+            ? strtolower($sortOrder)
+            : 'desc';
         $query->orderBy($sortBy, $sortOrder);
 
         $perPage = $request->input('per_page', 15);
@@ -110,6 +117,8 @@ class ConversationController extends Controller
             $conversation->save();
         }
 
+        ConversationStatusChanged::dispatch($conversation->fresh());
+
         return response()->json([
             'success' => true,
             'data' => $conversation->fresh()
@@ -143,6 +152,8 @@ class ConversationController extends Controller
             ])
         ]);
 
+        ConversationStatusChanged::dispatch($conversation->fresh());
+
         // Crear mensaje de sistema
         Message::create([
             'conversation_id' => $conversation->id,
@@ -167,6 +178,8 @@ class ConversationController extends Controller
             'status' => 'finished',
             'ended_at' => now()
         ]);
+
+        ConversationStatusChanged::dispatch($conversation->fresh());
 
         // Crear mensaje de sistema
         Message::create([

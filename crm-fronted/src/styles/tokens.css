@@ -1,0 +1,167 @@
+/* src/styles/tokens.css */
+
+:root {
+  color-scheme: light;
+
+  /* Marca WhatsApp / EPSA */
+  --c-primary: #16c766;
+  --c-primary-dark: #0f9f53;
+  --c-primary-soft: #e8fff3;
+  --c-primary-border: #bdf4d5;
+
+  /* Secundario */
+  --c-secondary: #dfeaf4;
+  --c-secondary-soft: #f1f5f9;
+
+  /* Estados */
+  --c-online: #22c55e;
+  --c-online-soft: #ddf9ea;
+  --c-pending: #f59e0b;
+  --c-pending-soft: #fff2d6;
+  --c-attention: #2388ff;
+  --c-attention-soft: #eaf4ff;
+  --c-closed: #94a3b8;
+  --c-closed-soft: #f1f5f9;
+  --c-danger: #ef4444;
+  --c-danger-soft: #fee2e2;
+
+  /* Superficies */
+  --bg-app: #f4f8fb;
+  --bg-panel: #ffffff;
+  --bg-chat: #f6faf7;
+  --bg-hover: #f8fafc;
+  --bg-selected: #eafff4;
+  --bg-muted: #f1f5f9;
+
+  /* Texto */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-inverse: #ffffff;
+
+  /* Bordes */
+  --border-soft: #e3ecf2;
+  --border-mid: #d5e1ea;
+  --border-strong: #cbd5e1;
+
+  /* Sombras */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 14px 38px rgba(15, 23, 42, 0.07);
+  --shadow-lg: 0 22px 60px rgba(15, 23, 42, 0.14);
+
+  /* Radios */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 20px;
+  --r-2xl: 26px;
+
+  /* Sidebar */
+  --sidebar-expanded: 280px;
+  --sidebar-compact: 86px;
+
+  /* Alias para los nombres usados por el codemod y por los componentes actuales */
+  --color-background: var(--bg-app);
+  --color-surface: var(--bg-panel);
+  --color-surface-alt: var(--bg-selected);
+  --color-border: var(--border-soft);
+  --color-text: var(--text-primary);
+  --color-text-muted: var(--text-muted);
+  --color-primary: var(--c-primary);
+  --color-primary-soft: var(--c-primary-soft);
+  --color-primary-border: var(--c-primary-border);
+  --color-success: var(--c-online);
+  --color-warning: var(--c-pending);
+  --color-danger: var(--c-danger);
+  --color-hover: var(--bg-hover);
+  --color-muted: var(--bg-muted);
+  --color-chat: var(--bg-chat);
+  --radius-button: var(--r-md);
+  --radius-card: var(--r-xl);
+  --shadow-soft: var(--shadow-md);
+}
+
+.dark {
+  color-scheme: dark;
+
+  /* Superficies */
+  --bg-app: #07111d;
+  --bg-panel: #0d1a2a;
+  --bg-chat: #091522;
+  --bg-hover: #132438;
+  --bg-selected: #073c2a;
+  --bg-muted: #132235;
+
+  /* Texto */
+  --text-primary: #f4f8fb;
+  --text-secondary: #cbd8e5;
+  --text-muted: #92a4b8;
+  --text-inverse: #0f172a;
+
+  /* Bordes */
+  --border-soft: #1b3045;
+  --border-mid: #29445c;
+  --border-strong: #3b5873;
+
+  /* Primario en dark */
+  --c-primary: #20df78;
+  --c-primary-dark: #12b864;
+  --c-primary-soft: #063b2a;
+  --c-primary-border: #0b6b46;
+
+  /* Estados dark */
+  --c-online-soft: #14532d;
+  --c-pending-soft: #78350f;
+  --c-attention-soft: #0b315c;
+  --c-closed-soft: #1e293b;
+  --c-danger-soft: #7f1d1d;
+
+  /* Alias compatibles con el tema actual */
+  --color-background: var(--bg-app);
+  --color-surface: var(--bg-panel);
+  --color-surface-alt: var(--bg-selected);
+  --color-border: var(--border-soft);
+  --color-text: var(--text-primary);
+  --color-text-muted: var(--text-muted);
+  --color-primary: var(--c-primary);
+  --color-primary-soft: var(--c-primary-soft);
+  --color-primary-border: var(--c-primary-border);
+  --color-success: var(--c-online);
+  --color-warning: var(--c-pending);
+  --color-danger: var(--c-danger);
+  --color-hover: var(--bg-hover);
+  --color-muted: var(--bg-muted);
+  --color-chat: var(--bg-chat);
+}
+
+/* Transición suave al cambiar de tema */
+html {
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+html *,
+html *::before,
+html *::after {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-duration: 150ms;
+  transition-timing-function: ease;
+}
+
+/* Respeta a quien prefiere menos movimiento */
+@media (prefers-reduced-motion: reduce) {
+  html,
+  html *,
+  html *::before,
+  html *::after {
+    transition: none !important;
+  }
+}
+
+/* Fondo base del body */
+body {
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}

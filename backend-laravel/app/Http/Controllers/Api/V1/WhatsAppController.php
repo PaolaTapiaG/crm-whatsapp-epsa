@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessMessageJob;
 use App\Services\WhatsAppAPIService;
 use App\Services\WhatsAppService;
 use Illuminate\Http\Request;
@@ -28,12 +29,6 @@ class WhatsAppController extends Controller
         $token = trim((string) $request->query('hub.verify_token', $request->query('hub_verify_token')));
         $challenge = $request->query('hub.challenge', $request->query('hub_challenge'));
 
-        Log::info('Webhook verification', [
-            'mode' => $mode,
-            'token' => $token,
-            'challenge' => $challenge,
-        ]);
-
         if ($mode === 'subscribe' && hash_equals(trim((string) config('whatsapp.verify_token')), $token) && filled($challenge)) {
             return response($challenge, 200)->header('Content-Type', 'text/plain');
         }
@@ -52,12 +47,14 @@ class WhatsAppController extends Controller
             $directTest = isset($payload['from'], $payload['text']);
             $results = [];
             
-            Log::info('📥 Webhook recibido', [
-                'payload' => json_encode($payload)
+            Log::info('Webhook recibido', [
+                'entries' => count($payload['entry'] ?? []),
+                'direct_test' => $directTest,
             ]);
 
             // Extraer mensajes
             $messages = $this->extractMessages($payload);
+            $this->processStatuses(data_get($payload, 'entry.0.changes.0.value.statuses', []));
 
             if (empty($messages)) {
                 $value = data_get($payload, 'entry.0.changes.0.value', []);
@@ -73,10 +70,43 @@ class WhatsAppController extends Controller
             foreach ($messages as $message) {
                 Log::info('📱 Procesando mensaje', [
                     'from' => $message['from'],
-                    'text' => $message['text'],
+                    'message_type' => $message['type'],
+                    'has_media' => filled($message['media_id'] ?? null),
                 ]);
 
-                // Marcar como leído
+                $incomingData = [
+                    'from' => $message['from'],
+                    'text' => $message['text'],
+                    'name' => $message['name'],
+                    'message_type' => $message['type'],
+                    'message_id' => $message['message_id'],
+                    'session_id' => 'wa-' . $message['from'],
+                    'media_id' => $message['media_id'] ?? null,
+                    'media_extension' => $message['media_extension'] ?? 'bin',
+                    'caption' => $message['caption'] ?? '',
+                ];
+
+                if (!$directTest) {
+                    $ingested = $this->whatsAppService->ingestIncomingMessage($incomingData);
+                    if (!$ingested['duplicate']) {
+                        ProcessMessageJob::dispatch($incomingData + [
+                            'stored_message_id' => $ingested['message_id'],
+                        ]);
+                        Log::channel('whatsapp')->info('Mensaje guardado y Job creado', [
+                            'conversation_id' => $ingested['conversation_id'],
+                            'message_id' => $ingested['message_id'],
+                        ]);
+                    }
+                    $results[] = [
+                        'success' => true,
+                        'queued' => !$ingested['duplicate'],
+                        'duplicate' => $ingested['duplicate'],
+                        'message_id' => $ingested['message_id'],
+                    ];
+                    continue;
+                }
+
+                // Los mensajes de prueba directos conservan la respuesta síncrona del simulador.
                 if (!$directTest && isset($message['message_id'])) {
                     try {
                         $this->whatsAppAPIService->markAsRead($message['message_id']);
@@ -89,14 +119,7 @@ class WhatsAppController extends Controller
                 }
 
                 // Procesar con IA
-                $result = $this->whatsAppService->processIncomingMessage([
-                    'from' => $message['from'],
-                    'text' => $message['text'],
-                    'name' => $message['name'],
-                    'message_type' => $message['type'],
-                    'message_id' => $message['message_id'],
-                    'session_id' => 'wa-' . $message['from'],
-                ]);
+                $result = $this->whatsAppService->processIncomingMessage($incomingData);
 
                 if (!empty($message['media_id'])) {
                     $mediaUrl = $this->whatsAppAPIService->downloadIncomingMedia($message['media_id'], $message['media_extension'] ?? 'bin');
@@ -106,7 +129,8 @@ class WhatsAppController extends Controller
                         $metadata = $stored?->metadata ?? [];
                         $metadata['kind'] = 'payment_proof';
                         $metadata['media_url'] = $mediaUrl;
-                        $stored?->update(['metadata' => $metadata, 'text' => $message['caption'] ?: 'Comprobante recibido']);
+                        $proofText = $message['caption'] ?: 'Comprobante recibido';
+                        $stored?->update(['metadata' => $metadata, 'text' => $proofText, 'content' => $proofText]);
                     }
                     $result['response'] = 'Su pago esta en revision por el operador, espere unos minutos antes de recibir su factura.';
                 }
@@ -244,6 +268,27 @@ class WhatsAppController extends Controller
         }
 
         return $messages;
+    }
+
+    private function processStatuses(array $statuses): void
+    {
+        foreach ($statuses as $status) {
+            $messageId = $status['id'] ?? null;
+            if (!$messageId) {
+                continue;
+            }
+
+            $message = \App\Models\Message::where('whatsapp_message_id', $messageId)->first();
+            if (!$message) {
+                continue;
+            }
+
+            $metadata = $message->metadata ?? [];
+            $metadata['delivery_status'] = $status['status'] ?? 'unknown';
+            $metadata['delivery_timestamp'] = $status['timestamp'] ?? null;
+            $metadata['delivery_errors'] = $status['errors'] ?? null;
+            $message->update(['metadata' => $metadata]);
+        }
     }
 
     /**

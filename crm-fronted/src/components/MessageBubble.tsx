@@ -26,7 +26,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
       className={`max-w-[70%] px-4 py-2 rounded-2xl relative animate-fade-in ${
         isUser
           ? 'bg-whatsapp-light self-end rounded-br-md'
-          : 'bg-white self-start rounded-bl-md'
+          : 'bg-[var(--color-surface)] self-start rounded-bl-md'
       }`}
     >
       <p className="text-sm text-gray-800">{message.text}</p>

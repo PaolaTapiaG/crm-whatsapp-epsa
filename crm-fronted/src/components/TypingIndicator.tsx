@@ -3,7 +3,7 @@ import React from 'react';
 
 const TypingIndicator: React.FC = () => {
   return (
-    <div className="self-start bg-white px-4 py-3 rounded-2xl rounded-bl-md animate-fade-in">
+    <div className="self-start bg-[var(--color-surface)] px-4 py-3 rounded-2xl rounded-bl-md animate-fade-in">
       <div className="flex gap-1.5">
         {[0, 1, 2].map((index) => (
           <div

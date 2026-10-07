@@ -136,6 +136,16 @@ export const api = {
     return response.data;
   },
 
+  async addInternalNote(conversationId: number, text: string) {
+    const response = await axios.post(`${V1_URL}/operator/conversation/${conversationId}/note`, { text });
+    return response.data;
+  },
+
+  async requestConversationClose(conversationId: number) {
+    const response = await axios.post(`${V1_URL}/operator/conversation/${conversationId}/request-close`);
+    return response.data;
+  },
+
   async sendQr(conversationId: number, to: string, file: File) {
     const form = new FormData();
     form.append('to', to); form.append('qr', file);

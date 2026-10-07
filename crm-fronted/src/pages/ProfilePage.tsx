@@ -1,4 +1,4 @@
-import React, { ChangeEvent, useEffect, useRef, useState } from 'react';
+﻿import React, { ChangeEvent, useEffect, useRef, useState } from 'react';
 import { Camera, MapPin, Save, Search } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -38,7 +38,7 @@ const defaultHours: DayHours[] = [
   { day: 'Domingo', enabled: false, open: '08:00', close: '12:00' },
 ];
 
-const field = 'mt-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-sky-500';
+const field = 'mt-2 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text)] outline-none focus:border-slate-400';
 
 const waterDropIcon = L.divIcon({
   className: 'water-drop-marker',
@@ -229,36 +229,39 @@ const ProfilePage: React.FC = () => {
     }
   };
 
-  return <div className="min-h-screen bg-slate-950 px-4 py-5 text-slate-100 md:ml-64 md:px-8">
-    <AdminSidebar />
-    <main className="mx-auto max-w-5xl">
-      <p className="text-xs uppercase tracking-[0.2em] text-sky-400">Perfil de WhatsApp</p>
-      <h1 className="mt-2 text-3xl font-semibold">Perfil</h1>
-      <p className="mt-1 text-sm text-slate-400">Este es el único lugar para modificar la información y la foto que ven tus clientes en WhatsApp.</p>
-      {saved && <div className="mt-5 border border-emerald-700 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-300">Meta confirmó la actualización del perfil de WhatsApp.</div>}
-      {saveError && <div className="mt-5 border border-rose-700 bg-rose-950/50 px-4 py-3 text-sm text-rose-300">{saveError}</div>}
-      <div className="mt-6 grid gap-6 lg:grid-cols-[280px_1fr]">
-        <section className="border border-slate-800 bg-slate-900 p-5">
-          <div className="mx-auto flex h-32 w-32 items-center justify-center overflow-hidden rounded-full bg-sky-600 text-3xl font-semibold text-white">
-            {profile.photo ? <img src={profile.photo} alt="Foto de perfil" className="h-full w-full object-cover" /> : profile.name.slice(0, 2).toUpperCase()}
-          </div>
-          <label className="mt-5 flex cursor-pointer items-center justify-center gap-2 border border-slate-700 px-3 py-2 text-sm text-sky-300 hover:bg-slate-800"><Camera className="h-4 w-4" /> Subir foto<input type="file" accept="image/*" onChange={uploadPhoto} className="hidden" /></label>
-          <p className="mt-3 text-center text-xs text-slate-500">Usa una imagen cuadrada para que se vea bien en el perfil.</p>
-        </section>
-        <section className="border border-slate-800 bg-slate-900 p-5">
-          <h2 className="font-semibold">Información del perfil</h2>
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            <label className="text-xs text-slate-400 sm:col-span-2">Nombre<input value={profile.name} readOnly className={`${field} cursor-not-allowed opacity-70`} /></label>
-            <label className="text-xs text-slate-400 sm:col-span-2">Descripción<textarea value={profile.about} onChange={(e) => update('about', e.target.value)} placeholder="Escribe una descripción para tus clientes" rows={3} className={field} /></label>
-            <div className="sm:col-span-2"><label className="text-xs text-slate-400">Dirección</label><div className="mt-2 flex gap-2"><input value={mapQuery} onChange={(e) => { setMapQuery(e.target.value); update('address', e.target.value); }} placeholder="Busca una dirección" className={field} /><button type="button" onClick={searchAddress} disabled={searchingAddress} title="Buscar dirección" className="mt-2 shrink-0 bg-sky-600 px-3 text-white disabled:opacity-50"><Search className="h-4 w-4" /></button></div><p className="mt-2 text-xs text-slate-500">WhatsApp guarda este campo como texto. Para ajustar el punto, haz clic en el mapa o arrastra la gota.</p><div className="mt-3 overflow-hidden border border-slate-700"><InteractiveMap position={mapPosition} onPositionChange={selectMapPosition} /></div><div className="mt-2 flex flex-wrap items-center gap-3"><button type="button" onClick={copyExactLocation} className="text-xs text-sky-300 hover:text-sky-200">{linkCopied ? 'Enlace copiado' : 'Copiar enlace exacto del punto'}</button><span className="text-xs text-slate-500">{mapPosition.latitude.toFixed(6)}, {mapPosition.longitude.toFixed(6)}</span></div><p className="mt-2 text-xs text-amber-300">El perfil de WhatsApp no admite coordenadas; para enviar un pin exacto usa el botón de ubicación del chat.</p></div>
-            <label className="text-xs text-slate-400 sm:col-span-2">Sitio web<input value={profile.website} onChange={(e) => update('website', e.target.value)} placeholder="https://..." className={field} /></label>
-          </div>
-          <div className="mt-6 border-t border-slate-800 pt-5"><h3 className="font-semibold">Horario</h3><p className="mt-1 text-xs text-slate-500">Configura los días y horas de atención. Se guardan en el CRM.</p><div className="mt-4 space-y-2">{hours.map((item, index) => <div key={item.day} className="grid grid-cols-[1fr_auto_1fr_1fr] items-center gap-2 text-sm"><span className="text-slate-300">{item.day}</span><input type="checkbox" checked={item.enabled} onChange={(e) => updateHour(index, { enabled: e.target.checked })} className="h-4 w-4 accent-sky-500" /><input type="time" value={item.open} disabled={!item.enabled} onChange={(e) => updateHour(index, { open: e.target.value })} className={`${field} mt-0 disabled:opacity-40`} /><input type="time" value={item.close} disabled={!item.enabled} onChange={(e) => updateHour(index, { close: e.target.value })} className={`${field} mt-0 disabled:opacity-40`} /></div>)}</div></div>
-          <div className="mt-5 flex flex-wrap gap-3"><button disabled={saving} onClick={save} className="flex items-center gap-2 bg-sky-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"><Save className="h-4 w-4" /> {saving ? 'Actualizando WhatsApp...' : 'Guardar perfil'}</button><a href={exactLocationUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 border border-slate-700 px-4 py-2 text-sm text-slate-300"><MapPin className="h-4 w-4" /> Abrir punto exacto</a></div>
-        </section>
-      </div>
-    </main>
-  </div>;
+  return (
+    <div className="min-h-screen bg-[var(--color-surface)] px-4 py-5 text-[var(--color-text)] md:ml-64 md:px-8">
+      <AdminSidebar />
+      <main className="mx-auto max-w-5xl">
+        <p className="text-xs uppercase tracking-[0.22em] text-[var(--color-text-muted)]">Perfil de WhatsApp</p>
+        <h1 className="mt-2 text-4xl font-bold tracking-tight text-[var(--color-text)]">Perfil</h1>
+        <p className="mt-2 text-base text-[var(--color-text-muted)]">Este es el único lugar para modificar la información y la foto que ven tus clientes en WhatsApp.</p>
+        {saved && <div className="mt-5 border border-online bg-[var(--color-success)]/10 px-4 py-3 text-sm text-[var(--color-success)]">Meta confirmó la actualización del perfil de WhatsApp.</div>}
+        {saveError && <div className="mt-5 border border-rose-200 bg-danger-soft px-4 py-3 text-sm text-rose-700">{saveError}</div>}
+        <div className="mt-6 grid gap-6 lg:grid-cols-[280px_1fr]">
+          <section className="rounded-[var(--radius-button)] border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm">
+            <div className="mx-auto flex h-32 w-32 items-center justify-center overflow-hidden rounded-full bg-text-primary text-3xl font-semibold text-white">
+              {profile.photo ? <img src={profile.photo} alt="Foto de perfil" className="h-full w-full object-cover" /> : profile.name.slice(0, 2).toUpperCase()}
+            </div>
+            <label className="mt-5 flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-text)] hover:bg-[var(--color-surface-alt)]"><Camera className="h-4 w-4" /> Subir foto<input type="file" accept="image/*" onChange={uploadPhoto} className="hidden" /></label>
+            <p className="mt-3 text-center text-xs text-[var(--color-text-muted)]">Usa una imagen cuadrada para que se vea bien en el perfil.</p>
+          </section>
+
+          <section className="rounded-[var(--radius-button)] border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm">
+            <h2 className="font-semibold text-[var(--color-text)]">Información del perfil</h2>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <label className="text-xs text-[var(--color-text-muted)] sm:col-span-2">Nombre<input value={profile.name} readOnly className={`${field} cursor-not-allowed opacity-70`} /></label>
+              <label className="text-xs text-[var(--color-text-muted)] sm:col-span-2">Descripción<textarea value={profile.about} onChange={(e) => update('about', e.target.value)} placeholder="Escribe una descripción para tus clientes" rows={3} className={field} /></label>
+              <div className="sm:col-span-2"><label className="text-xs text-[var(--color-text-muted)]">Dirección</label><div className="mt-2 flex gap-2"><input value={mapQuery} onChange={(e) => { setMapQuery(e.target.value); update('address', e.target.value); }} placeholder="Busca una dirección" className={field} /><button type="button" onClick={searchAddress} disabled={searchingAddress} title="Buscar dirección" className="mt-2 shrink-0 rounded-lg bg-text-primary px-3 text-white disabled:opacity-50"><Search className="h-4 w-4" /></button></div><p className="mt-2 text-xs text-[var(--color-text-muted)]">WhatsApp guarda este campo como texto. Para ajustar el punto, haz clic en el mapa o arrastra la gota.</p><div className="mt-3 overflow-hidden rounded-[var(--radius-button)] border border-[var(--color-border)]"><InteractiveMap position={mapPosition} onPositionChange={selectMapPosition} /></div><div className="mt-2 flex flex-wrap items-center gap-3"><button type="button" onClick={copyExactLocation} className="text-xs text-[var(--color-text)] hover:text-[var(--color-text)]">{linkCopied ? 'Enlace copiado' : 'Copiar enlace exacto del punto'}</button><span className="text-xs text-[var(--color-text-muted)]">{mapPosition.latitude.toFixed(6)}, {mapPosition.longitude.toFixed(6)}</span></div><p className="mt-2 text-xs text-pending">El perfil de WhatsApp no admite coordenadas; para enviar un pin exacto usa el botón de ubicación del chat.</p></div>
+              <label className="text-xs text-[var(--color-text-muted)] sm:col-span-2">Sitio web<input value={profile.website} onChange={(e) => update('website', e.target.value)} placeholder="https://..." className={field} /></label>
+            </div>
+            <div className="mt-6 border-t border-[var(--color-border)] pt-5"><h3 className="font-semibold text-[var(--color-text)]">Horario</h3><p className="mt-1 text-xs text-[var(--color-text-muted)]">Configura los días y horas de atención. Se guardan en el CRM.</p><div className="mt-4 space-y-2">{hours.map((item, index) => <div key={item.day} className="grid grid-cols-[1fr_auto_1fr_1fr] items-center gap-2 text-sm"><span className="text-[var(--color-text)]">{item.day}</span><input type="checkbox" checked={item.enabled} onChange={(e) => updateHour(index, { enabled: e.target.checked })} className="h-4 w-4 accent-slate-700" /><input type="time" value={item.open} disabled={!item.enabled} onChange={(e) => updateHour(index, { open: e.target.value })} className={`${field} mt-0 disabled:opacity-40`} /><input type="time" value={item.close} disabled={!item.enabled} onChange={(e) => updateHour(index, { close: e.target.value })} className={`${field} mt-0 disabled:opacity-40`} /></div>)}</div></div>
+            <div className="mt-5 flex flex-wrap gap-3"><button disabled={saving} onClick={save} className="flex items-center gap-2 rounded-lg bg-text-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"><Save className="h-4 w-4" /> {saving ? 'Actualizando WhatsApp...' : 'Guardar perfil'}</button><a href={exactLocationUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-sm text-[var(--color-text)]"><MapPin className="h-4 w-4" /> Abrir punto exacto</a></div>
+          </section>
+        </div>
+      </main>
+    </div>
+  );
 };
 
 export default ProfilePage;

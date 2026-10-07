@@ -6,6 +6,8 @@ use App\Models\Client;
 use App\Models\Conversation;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Response;
 
 class OllamaService
 {
@@ -58,16 +60,15 @@ class OllamaService
                 $payload['format'] = 'json';
             }
 
-            $response = Http::connectTimeout(1)->timeout((int) env('OLLAMA_TIMEOUT', 2))->post("{$this->baseUrl}/api/generate", $payload);
+            $response = $this->requestWithRetry(fn () => Http::connectTimeout(1)
+                ->timeout((int) env('OLLAMA_TIMEOUT', 2))
+                ->post("{$this->baseUrl}/api/generate", $payload));
 
             if ($response->successful()) {
                 return $response->json();
             }
 
-            Log::error('Error en Ollama', [
-                'status' => $response->status(),
-                'body' => $response->body()
-            ]);
+            Log::error('Error en Ollama', ['status' => $response->status()]);
 
             return null;
         } catch (\Exception $e) {
@@ -101,22 +102,52 @@ class OllamaService
                 $payload['response_format'] = ['type' => 'json_object'];
             }
 
-            $response = Http::connectTimeout(3)
+            $response = $this->requestWithRetry(fn () => Http::connectTimeout(3)
                 ->timeout((int) env('GROQ_TIMEOUT', 15))
                 ->withToken((string) env('GROQ_API_KEY'))
                 ->acceptJson()
-                ->post('https://api.groq.com/openai/v1/chat/completions', $payload);
+                ->post('https://api.groq.com/openai/v1/chat/completions', $payload));
+
+            Log::info('Groq llamado', ['provider' => 'groq', 'json_mode' => $json]);
 
             if ($response->successful()) {
                 return ['response' => $response->json('choices.0.message.content')];
             }
 
-            Log::error('Error en Groq', ['status' => $response->status(), 'body' => $response->body()]);
+            Log::error('Error en Groq', ['status' => $response->status()]);
         } catch (\Throwable $e) {
             Log::error('Error conectando con Groq: ' . $e->getMessage());
         }
 
         return null;
+    }
+
+    private function requestWithRetry(callable $request): Response
+    {
+        $lastException = null;
+
+        for ($attempt = 1; $attempt <= 3; $attempt++) {
+            try {
+                $response = $request();
+                if (!$this->retryableStatus($response->status()) || $attempt === 3) {
+                    return $response;
+                }
+            } catch (ConnectionException $exception) {
+                $lastException = $exception;
+                if ($attempt === 3) {
+                    throw $exception;
+                }
+            }
+
+            usleep($attempt * 300000);
+        }
+
+        throw $lastException ?? new \RuntimeException('No se obtuvo respuesta del proveedor de IA.');
+    }
+
+    private function retryableStatus(int $status): bool
+    {
+        return in_array($status, [408, 429, 500, 502, 503, 504], true);
     }
 
     public function analyzeWithExamples(string $message): array
@@ -246,17 +277,22 @@ Historial de conversación:
 Mensaje actual: "{$message}"
 
 Ejemplos de clasificación:
-Usuario: "Hola" -> {"intent":"saludo","confidence":98}
-Usuario: "Quiero saber mi deuda" -> {"intent":"consultar_saldo","confidence":95}
-Usuario: "Necesito pagar" -> {"intent":"pagar_deuda","confidence":93}
-Usuario: "¿A qué hora abren?" -> {"intent":"horarios","confidence":96}
-Usuario: "No tengo agua" -> {"intent":"falta_agua","confidence":95}
+Usuario: "Hola" -> {"intent":"saludo","confidence":0.98}
+Usuario: "Quiero saber mi deuda" -> {"intent":"CONSULTAR_SALDO","confidence":0.95,"needs_database":true}
+Usuario: "Quiero ver mi factura" -> {"intent":"VER_FACTURA","confidence":0.95,"needs_database":true}
+Usuario: "Necesito pagar" -> {"intent":"REALIZAR_PAGO","confidence":0.93}
+Usuario: "No tengo agua" -> {"intent":"REPORTAR_PROBLEMA","confidence":0.95}
+Usuario: "Quiero hablar con una persona" -> {"intent":"HABLAR_OPERADOR","confidence":0.96,"needs_operator":true}
 
 Debes detectar:
 1. Intención principal: 
-   - saludo (hola, buenos días)
-   - consultar_saldo (quiero saber mi deuda)
-   - pagar_deuda (quiero pagar)
+    - MENU (menu, opciones disponibles)
+    - CONSULTAR_SALDO (saldo, deuda, cuanto debo)
+    - VER_FACTURA (factura, recibo)
+    - REALIZAR_PAGO (pagar, pago, QR, transferencia)
+    - REPORTAR_PROBLEMA (problema de servicio, no tengo agua, fuga, rotura)
+    - HABLAR_OPERADOR (persona, operador, humano)
+    - saludo (hola, buenos días)
    - horarios (horarios de atención)
     - problemas_servicio (problemas con el agua)
    - rotura_caneria (rotura en la calle)
@@ -272,15 +308,15 @@ Debes detectar:
 3. Confianza: 0-100
 4. Entidades detectadas: número de medidor, CI, dirección
 
-Si el mensaje es una opción del menú, usa estas equivalencias: 1/A saldo, 2/B pago, 3/C horarios, 4/D problemas, 5/E operador.
-Para consulta_general, responde de forma breve, natural y amable. No inventes datos en tiempo real, no afirmes haber consultado sistemas externos y no solicites ni reveles datos privados.
+Si el mensaje es una opción del menú activo, usa: 1 saldo, 2 factura, 3 pago, 4 problema, 6 operador. Las letras A/B/C/D/E existentes también son válidas.
+No generes respuestas para el usuario. No inventes saldos, facturas, pagos ni datos de sistemas externos.
 
 Responde SOLO en JSON:
 {
   "intent": "intencion_detectada",
-  "sentiment": "positivo|negativo|neutral",
-  "confidence": 85,
-    "response": "respuesta breve, natural y útil en español",
+    "confidence": 0.85,
+    "needs_database": false,
+    "needs_operator": false,
   "entities": {
     "medidor": null,
     "ci": null,
@@ -293,17 +329,21 @@ PROMPT;
     /**
      * Parsear respuesta de análisis
      */
-    private function parseAnalysisResponse(string $response)
+    private function parseAnalysisResponse(string $response): array
     {
-        // Intentar extraer JSON
+        $json = json_decode(trim($response), true);
+        if (is_array($json)) {
+            return $json;
+        }
+
         if (preg_match('/\{.*\}/s', $response, $matches)) {
             $json = json_decode($matches[0], true);
-            if ($json) {
+            if (is_array($json)) {
                 return $json;
             }
         }
 
-        return $this->fallbackAnalysis('');
+        return $this->fallbackAnalysis($response);
     }
 
     /**
@@ -311,16 +351,31 @@ PROMPT;
      */
     private function fallbackAnalysis(string $message)
     {
-        $message = strtolower($message);
+        $message = strtolower(trim(strtr($message, [
+            'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ñ' => 'n',
+        ])));
+
+        if (preg_match('/\b(menu|opciones)\b|ver el menu|muestrame las opciones/', $message)) {
+            return ['intent' => 'MENU', 'confidence' => 0.99, 'entities' => []];
+        }
+        if (str_contains($message, 'factura') || str_contains($message, 'recibo')) {
+            return ['intent' => 'VER_FACTURA', 'confidence' => 0.95, 'entities' => []];
+        }
+        if (str_contains($message, 'operador') || str_contains($message, 'humano') || str_contains($message, 'persona')) {
+            return ['intent' => 'HABLAR_OPERADOR', 'confidence' => 0.95, 'entities' => []];
+        }
+        if (str_contains($message, 'no tengo agua') || str_contains($message, 'sin agua') || str_contains($message, 'problema')) {
+            return ['intent' => 'REPORTAR_PROBLEMA', 'confidence' => 0.95, 'entities' => []];
+        }
         
         if (str_contains($message, 'hola') || str_contains($message, 'buenos')) {
             return ['intent' => 'saludo', 'sentiment' => 'positivo', 'confidence' => 95];
         }
         if (str_contains($message, 'saldo') || str_contains($message, 'debo')) {
-            return ['intent' => 'consultar_saldo', 'sentiment' => 'neutral', 'confidence' => 90];
+            return ['intent' => 'CONSULTAR_SALDO', 'sentiment' => 'neutral', 'confidence' => 0.9, 'entities' => []];
         }
         if (str_contains($message, 'pagar')) {
-            return ['intent' => 'pagar_deuda', 'sentiment' => 'neutral', 'confidence' => 88];
+            return ['intent' => 'REALIZAR_PAGO', 'sentiment' => 'neutral', 'confidence' => 0.88, 'entities' => []];
         }
         if (str_contains($message, 'horario')) {
             return ['intent' => 'horarios', 'sentiment' => 'neutral', 'confidence' => 90];

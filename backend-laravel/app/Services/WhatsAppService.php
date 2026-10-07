@@ -23,6 +23,41 @@ class WhatsAppService
     }
 
     /**
+     * Guardar un mensaje entrante sin generar respuesta automática.
+     * Se usa en webhooks reales para responder rápido a Meta y dejar la
+     * respuesta al job en cola.
+     */
+    public function ingestIncomingMessage(array $data): array
+    {
+        $client = $this->findOrCreateClient($data);
+        $conversation = $this->findOrCreateConversation($client, $data);
+
+        if (!empty($data['message_id'])) {
+            $existing = Message::where('whatsapp_message_id', $data['message_id'])->first();
+            if ($existing) {
+                return [
+                    'success' => true,
+                    'duplicate' => true,
+                    'conversation_id' => $conversation->id,
+                    'message_id' => $existing->id,
+                    'session_id' => $conversation->session_id,
+                ];
+            }
+        }
+
+        $userMessage = $this->saveUserMessage($conversation, $data);
+        $client->update(['last_interaction_at' => now()]);
+
+        return [
+            'success' => true,
+            'duplicate' => false,
+            'conversation_id' => $conversation->id,
+            'message_id' => $userMessage->id,
+            'session_id' => $conversation->session_id,
+        ];
+    }
+
+    /**
      * Procesar mensaje entrante
      */
     public function processIncomingMessage(array $data)
@@ -39,19 +74,7 @@ class WhatsAppService
             // 2. Buscar o crear conversación
             $conversation = $this->findOrCreateConversation($client, $data);
 
-            if (in_array($conversation->status, ['finished', 'closed'], true)) {
-                $conversation->update([
-                    'status' => 'active',
-                    'ended_at' => null,
-                    'context' => array_merge($conversation->context ?? [], [
-                        'waiting_for' => null,
-                        'action' => null,
-                    ]),
-                ]);
-                $conversation->refresh();
-            }
-
-            if (!empty($data['message_id'])) {
+            if (!empty($data['message_id']) && empty($data['stored_message_id'])) {
                 $alreadyProcessed = Message::where('whatsapp_message_id', $data['message_id'])->exists();
                 if ($alreadyProcessed) {
                     Log::channel('whatsapp')->info('Mensaje duplicado ignorado', [
@@ -71,16 +94,34 @@ class WhatsAppService
             }
 
             // 3. Guardar mensaje del usuario
-            $userMessage = $this->saveUserMessage($conversation, $data);
+            $userMessage = !empty($data['stored_message_id'])
+                ? Message::find($data['stored_message_id'])
+                : $this->saveUserMessage($conversation, $data);
+
+            if (!$userMessage) {
+                $userMessage = $this->saveUserMessage($conversation, $data);
+            }
 
             $normalizedText = $this->normalizeText($data['text'] ?? '');
             $isMenuOption = (bool) preg_match('/^(?:opcion\s*)?[1-5a-e]$/', $normalizedText);
-            $isGreeting = (bool) preg_match('/^(hola|buenas(?: dias| tardes| noches)?|hey|que tal)\b/', $normalizedText);
+            $isGreeting = (bool) preg_match('/^(hola|buenas(?: dias| tardes| noches)?|hey|que tal)[!?.\s]*$/', $normalizedText);
 
             if ($conversation->status === 'transferred'
                 && (($conversation->context ?? [])['waiting_for'] ?? null) === null
-                && !$isMenuOption
-                && !$isGreeting) {
+                && $isGreeting) {
+                $conversation->update([
+                    'status' => 'active',
+                    'context' => array_merge($conversation->context ?? [], [
+                        'operator_required' => false,
+                        'waiting_for' => null,
+                    ]),
+                ]);
+                $conversation->refresh();
+            }
+
+            if ($conversation->status === 'transferred'
+                && (($conversation->context ?? [])['waiting_for'] ?? null) === null
+                && !$isMenuOption) {
                 $client->update(['last_interaction_at' => now()]);
 
                 return [
@@ -91,10 +132,6 @@ class WhatsAppService
                     'session_id' => $conversation->session_id,
                     'analysis' => ['intent' => 'operador', 'confidence' => 100],
                 ];
-            }
-
-            if ($conversation->status === 'transferred' && $isGreeting) {
-                $conversation->update(['status' => 'active', 'ended_at' => null]);
             }
 
             $nameChange = $this->handleNameChangeCommand($client, $conversation, $data['text'] ?? '');

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Events\ConversationStatusChanged;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Services\WhatsAppAPIService;
@@ -66,6 +67,29 @@ class OperatorController extends Controller
         ]);
 
         return response()->json(['success' => true, 'data' => $result]);
+    }
+
+    public function storeNote(Request $request, string $conversationId)
+    {
+        $data = $request->validate([
+            'text' => 'required|string|max:4096',
+            'sender_id' => 'nullable|integer|exists:users,id',
+        ]);
+
+        $message = Message::create([
+            'conversation_id' => $conversationId,
+            'sender' => 'human',
+            'sender_type' => 'operator',
+            'sender_id' => $data['sender_id'] ?? $request->user()?->id,
+            'text' => $data['text'],
+            'content' => $data['text'],
+            'message_type' => 'text',
+            'internal' => true,
+            'ai_generated' => false,
+            'metadata' => ['kind' => 'internal_note'],
+        ]);
+
+        return response()->json(['success' => true, 'data' => $message->fresh()]);
     }
 
     public function sendQr(Request $request, string $conversationId)
@@ -242,6 +266,7 @@ class OperatorController extends Controller
     {
         $conversation = Conversation::with('client')->findOrFail($conversationId);
         $conversation->update(['status' => 'transferred', 'priority' => 'high']);
+        ConversationStatusChanged::dispatch($conversation->fresh());
         $this->whatsApp->sendTextMessage($conversation->client->whatsapp_number, 'Te conectaré con un operador humano.');
 
         return response()->json(['success' => true]);
@@ -249,9 +274,40 @@ class OperatorController extends Controller
 
     public function close(string $conversationId)
     {
-        Conversation::findOrFail($conversationId)->update(['status' => 'finished', 'ended_at' => now()]);
+        $conversation = Conversation::findOrFail($conversationId);
+        $conversation->update(['status' => 'finished', 'ended_at' => now()]);
+        ConversationStatusChanged::dispatch($conversation->fresh());
 
         return response()->json(['success' => true]);
+    }
+
+    public function requestClose(string $conversationId)
+    {
+        $conversation = Conversation::with('client')->findOrFail($conversationId);
+        $context = $conversation->context ?? [];
+
+        if (($context['closure_state'] ?? null) === 'awaiting_confirmation') {
+            return response()->json(['success' => true, 'data' => $conversation]);
+        }
+
+        $context = array_merge($context, [
+            'closure_state' => 'awaiting_confirmation',
+            'waiting_for' => 'closure_confirmation',
+            'waiting_since' => now()->toIso8601String(),
+        ]);
+        $conversation->update(['status' => 'active', 'context' => $context, 'ended_at' => null]);
+
+        $text = "¿Necesitas ayuda con algo más?\n\n1. Sí, necesito ayuda\n2. No, terminar conversación";
+        $this->whatsApp->sendTextMessage($conversation->client->whatsapp_number, $text);
+        Message::create([
+            'conversation_id' => $conversation->id,
+            'sender' => 'bot',
+            'text' => $text,
+            'metadata' => ['kind' => 'closure_confirmation'],
+        ]);
+        ConversationStatusChanged::dispatch($conversation->fresh());
+
+        return response()->json(['success' => true, 'data' => $conversation->fresh()]);
     }
 
     private function invoicePdf(array $data): string

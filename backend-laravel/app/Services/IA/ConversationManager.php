@@ -6,6 +6,7 @@ use App\Models\Client;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\Meter;
+use App\Events\ConversationStatusChanged;
 use Illuminate\Support\Facades\Log;
 
 class ConversationManager
@@ -31,6 +32,20 @@ class ConversationManager
         $this->memoryManager->rememberLocalFacts($conversation, $text);
         $context = $conversation->fresh()->context ?? [];
 
+        if (in_array($conversation->status, ['finished', 'closed'], true)) {
+            $conversation->update([
+                'status' => 'active',
+                'ended_at' => null,
+                'context' => array_merge($context, ['closure_state' => 'none', 'waiting_for' => null]),
+            ]);
+            ConversationStatusChanged::dispatch($conversation->fresh());
+            $context = $conversation->fresh()->context ?? [];
+        }
+
+        if (($context['closure_state'] ?? null) === 'awaiting_confirmation') {
+            return $this->handleClosureConfirmation($client, $conversation, $text, $normalizedText);
+        }
+
         $memory = $this->memoryManager->get($conversation);
         if (!empty($memory['nombre'])) {
             $client->update(['name' => mb_convert_case($memory['nombre'], MB_CASE_TITLE, 'UTF-8')]);
@@ -49,7 +64,7 @@ class ConversationManager
             $result = $this->processNombreInput($client, $conversation, $text);
             return ['response' => $result, 'analysis' => ['intent' => 'nombre', 'confidence' => 100]];
         } elseif ($this->isMenuOption($normalizedText)) {
-            $analysis = $this->detectIntent($normalizedText);
+            $analysis = $this->detectIntent($normalizedText, $context);
         } elseif (($context['waiting_for'] ?? null) === 'socio_nombre') {
             $result = $this->processSocioNameInput($client, $conversation, $text);
             return ['response' => $result, 'analysis' => ['intent' => 'socio_nombre', 'confidence' => 100]];
@@ -67,7 +82,17 @@ class ConversationManager
             return ['response' => $result, 'analysis' => ['intent' => 'zona', 'confidence' => 100]];
         } else {
             $ruleAnalysis = $this->detectIntent($normalizedText);
-            $analysis = $this->useIA
+            $deterministicIntents = [
+                'MENU',
+                'CONSULTAR_SALDO',
+                'VER_FACTURA',
+                'REALIZAR_PAGO',
+                'REPORTAR_PROBLEMA',
+                'HABLAR_OPERADOR',
+            ];
+            $isDeterministic = ($ruleAnalysis['confidence'] ?? 0) >= 90
+                && in_array($ruleAnalysis['intent'] ?? null, $deterministicIntents, true);
+            $analysis = $this->useIA && !$isDeterministic
                 ? $this->analyzeWithOllama($text, $conversation)
                 : $ruleAnalysis;
 
@@ -102,6 +127,7 @@ class ConversationManager
     private function getConversationHistory(Conversation $conversation)
     {
         return $conversation->messages()
+            ->where('internal', false)
             ->orderBy('created_at', 'desc')
             ->take(10)
             ->get()
@@ -129,14 +155,27 @@ class ConversationManager
         }
 
         switch ($intent) {
+            case 'MENU':
+                return $this->handleMenu($conversation);
+
             case 'saludo':
                 return $this->handleSaludo($client);
                 
+            case 'CONSULTAR_SALDO':
             case 'consultar_saldo':
                 return $this->handleConsultarSaldo($client, $conversation);
+
+            case 'VER_FACTURA':
+                return $this->handleVerFactura($client, $conversation);
+
+            case 'REALIZAR_PAGO':
+                return $this->handlePagarDeuda($conversation);
                 
             case 'pagar_deuda':
                 return $this->handlePagarDeuda($conversation);
+
+            case 'REPORTAR_PROBLEMA':
+                return $this->handleProblemasServicio($conversation);
                 
             case 'horarios':
                 return $this->handleHorarios();
@@ -158,8 +197,9 @@ class ConversationManager
 
             case 'otro':
             case 'consulta_general':
-                return $analysis['response'] ?? $this->handleDefault();
+                return $this->handleDefault();
                 
+            case 'HABLAR_OPERADOR':
             case 'hablar_operador':
                 return $this->handleHablarOperador($conversation);
                 
@@ -173,14 +213,67 @@ class ConversationManager
 
     private function normalizeText(string $text): string
     {
-        return strtolower(trim(strtr($text, [
+        $text = strtolower(trim(strtr($text, [
             'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ñ' => 'n',
         ])));
+
+        return trim(preg_replace(
+            [
+                '/\bola\b/', '/\bkiero\b/', '/\bki[e]?ro\b/', '/\bsaver\b/',
+                '/\bdevo\b/', '/\bfakctura\b/', '/\bablar\b/', '/\bai\b/',
+            ],
+            ['hola', 'quiero', 'quiero', 'saber', 'debo', 'factura', 'hablar', 'hay'],
+            $text
+        ));
     }
 
     private function isGreeting(string $text): bool
     {
-        return (bool) preg_match('/^(hola|buenas(?: dias| tardes| noches)?|hey|que tal)\b/', $text);
+        return (bool) preg_match('/^(hola|buenas(?: dias| tardes| noches)?|hey|que tal)[!?.\s]*$/', $text);
+    }
+
+    private function handleClosureConfirmation(Client $client, Conversation $conversation, string $rawText, string $text): array
+    {
+        $context = $conversation->context ?? [];
+        $close = ['2', 'no', 'no gracias', 'terminar', 'finalizar', 'cerrar', 'eso es todo', 'nada mas', 'no necesito nada', 'puedes cerrar'];
+        $continue = ['1', 'si', 'si necesito ayuda', 'necesito ayuda', 'quiero seguir', 'continuar', 'otra consulta', 'tengo otra pregunta'];
+
+        if (in_array($text, $close, true)) {
+            $conversation->update([
+                'status' => 'finished',
+                'ended_at' => now(),
+                'context' => array_merge($context, [
+                    'closure_state' => 'closed',
+                    'waiting_for' => null,
+                    'close_reason' => 'user_confirmed',
+                    'closed_at' => now()->toIso8601String(),
+                ]),
+            ]);
+            ConversationStatusChanged::dispatch($conversation->fresh());
+
+            return ['response' => 'Gracias por contactarnos. Si necesitas ayuda nuevamente, puedes escribirnos cuando quieras.', 'analysis' => ['intent' => 'CLOSE_CONVERSATION', 'confidence' => 100]];
+        }
+
+        if (in_array($text, $continue, true)) {
+            $conversation->update(['context' => array_merge($context, ['closure_state' => 'none', 'waiting_for' => null])]);
+
+            return ['response' => 'Claro. ¿En qué puedo ayudarte?', 'analysis' => ['intent' => 'CONTINUE_CONVERSATION', 'confidence' => 100]];
+        }
+
+        if ($this->looksLikeNewRequest($text)) {
+            $conversation->update(['context' => array_merge($context, ['closure_state' => 'none', 'waiting_for' => null])]);
+
+            // A new service request also confirms that the person wants to continue.
+            // Process it immediately instead of requiring the customer to send it twice.
+            return $this->processMessage($client, $conversation->fresh(), $rawText);
+        }
+
+        return ['response' => 'Con gusto. ¿Deseas continuar con la atención o terminar la conversación? Responde 1 para continuar o 2 para terminar.', 'analysis' => ['intent' => 'ACKNOWLEDGEMENT', 'confidence' => 75]];
+    }
+
+    private function looksLikeNewRequest(string $text): bool
+    {
+        return str_contains($text, '?') || (bool) preg_match('/\b(saldo|factura|pagar|pago|problema|agua|horario|operador|medidor)\b/', $text);
     }
 
     private function processNombreInput(Client $client, Conversation $conversation, string $text): string
@@ -202,20 +295,23 @@ class ConversationManager
 
     private function isMenuOption(string $text): bool
     {
-        return (bool) preg_match('/^(?:opcion\s*)?([1-5]|[a-e])$/', $text);
+        return (bool) preg_match('/^(?:opcion\s*)?(1|2|3|4|6|[a-e])$/', $text);
     }
 
     private function analyzeWithOllama(string $text, Conversation $conversation): array
     {
         $history = $this->getConversationHistory($conversation);
         $analysis = $this->ollamaService->analyzeMessage($text, $history);
+        $ruleAnalysis = $this->detectIntent($this->normalizeText($text), $conversation->context ?? []);
 
         if (!is_array($analysis) || empty($analysis['intent'])) {
-            Log::warning('Ollama no devolvio una intencion valida; usando reglas', ['text' => $text]);
-            return $this->detectIntent($this->normalizeText($text));
+            Log::warning('Ollama no devolvio una intencion valida; usando reglas');
+            return $ruleAnalysis;
         }
 
         $validIntents = [
+            'MENU', 'CONSULTAR_SALDO', 'VER_FACTURA', 'REALIZAR_PAGO',
+            'REPORTAR_PROBLEMA', 'HABLAR_OPERADOR',
             'saludo', 'consultar_saldo', 'pagar_deuda', 'horarios',
             'problemas_servicio', 'rotura_caneria', 'fuga_casa',
             'falta_agua', 'fecha_hora', 'hablar_operador', 'despedida',
@@ -223,19 +319,16 @@ class ConversationManager
         ];
 
         if (!in_array($analysis['intent'], $validIntents, true)) {
-            return $this->detectIntent($this->normalizeText($text));
-        }
-
-        // Ollama puede responder "otro" aunque el texto contenga una intención clara.
-        // Conservamos la IA como primera opción y evitamos perder acciones conocidas.
-        $ruleAnalysis = $this->detectIntent($this->normalizeText($text));
-        if ($analysis['intent'] === 'otro'
-            && ($ruleAnalysis['intent'] ?? 'otro') !== 'otro') {
-            $ruleAnalysis['source'] = 'ollama_fallback_rules';
             return $ruleAnalysis;
         }
 
-        $analysis['confidence'] = max(0, min(100, (int) ($analysis['confidence'] ?? 70)));
+        $analysis = $this->normalizeAnalysis($analysis);
+        if (($ruleAnalysis['confidence'] ?? 0) >= 90
+            && ($ruleAnalysis['intent'] ?? 'otro') !== 'otro') {
+            $ruleAnalysis['source'] = 'rules_safety_override';
+            return $ruleAnalysis;
+        }
+
         $analysis['source'] = 'ollama';
 
         Log::info('Intencion analizada por Ollama', [
@@ -246,37 +339,75 @@ class ConversationManager
         return $analysis;
     }
 
-    private function detectIntent(string $text): array
+    private function normalizeAnalysis(array $analysis): array
     {
-        if (preg_match('/^(?:opcion\s*)?([1-5]|[a-e])$/', $text, $matches)) {
+        $aliases = [
+            'menu' => 'MENU',
+            'consultar_saldo' => 'CONSULTAR_SALDO',
+            'pagar_deuda' => 'REALIZAR_PAGO',
+            'problemas_servicio' => 'REPORTAR_PROBLEMA',
+            'falta_agua' => 'REPORTAR_PROBLEMA',
+            'rotura_caneria' => 'REPORTAR_PROBLEMA',
+            'fuga_casa' => 'REPORTAR_PROBLEMA',
+            'hablar_operador' => 'HABLAR_OPERADOR',
+        ];
+
+        $intent = (string) ($analysis['intent'] ?? 'otro');
+        $analysis['intent'] = $aliases[strtolower($intent)] ?? $intent;
+        $confidence = (float) ($analysis['confidence'] ?? 0.7);
+        $analysis['confidence'] = (int) round(max(0, min(1, $confidence > 1 ? $confidence / 100 : $confidence)) * 100);
+        $analysis['entities'] = is_array($analysis['entities'] ?? null) ? $analysis['entities'] : [];
+        unset($analysis['response']);
+
+        return $analysis;
+    }
+
+    private function detectIntent(string $text, array $context = []): array
+    {
+        if (preg_match('/^(?:opcion\s*)?(1|2|3|4|6|[a-e])$/', $text, $matches)) {
+            $menuShown = ($context['menu_shown'] ?? false) === true;
+            if (!$menuShown && !isset($context['action'])) {
+                return ['intent' => 'otro', 'sentiment' => 'neutral', 'confidence' => 50];
+            }
+
             return [
                 'intent' => [
-                    '1' => 'consultar_saldo',
-                    '2' => 'pagar_deuda',
-                    '3' => 'horarios',
-                    '4' => 'problemas_servicio',
-                    '5' => 'hablar_operador',
-                    'a' => 'consultar_saldo',
-                    'b' => 'pagar_deuda',
+                    '1' => 'CONSULTAR_SALDO',
+                    '2' => 'VER_FACTURA',
+                    '3' => 'REALIZAR_PAGO',
+                    '4' => 'REPORTAR_PROBLEMA',
+                    '6' => 'HABLAR_OPERADOR',
+                    'a' => 'CONSULTAR_SALDO',
+                    'b' => 'REALIZAR_PAGO',
                     'c' => 'horarios',
-                    'd' => 'problemas_servicio',
-                    'e' => 'hablar_operador',
+                    'd' => 'REPORTAR_PROBLEMA',
+                    'e' => 'HABLAR_OPERADOR',
                 ][$matches[1]],
                 'sentiment' => 'neutral',
                 'confidence' => 100,
             ];
         }
 
+        // Evitar falsos positivos numéricos cuando un usuario menciona un número dentro de una frase.
+        // Solo un valor aislado ("1", "2", etc.) debe interpretarse como opción del menú.
+        if (preg_match('/\d/', $text)) {
+            return ['intent' => 'otro', 'sentiment' => 'neutral', 'confidence' => 50];
+        }
+
+        if (preg_match('/\b(menu|opciones|opciones tengo)\b/', $text)
+            || str_contains($text, 'ver el menu')
+            || str_contains($text, 'muestrame las opciones')) {
+            return ['intent' => 'MENU', 'sentiment' => 'neutral', 'confidence' => 100];
+        }
+
         $keywords = [
-            'pagar_deuda' => ['pagar', 'pago', 'qr', 'transferencia'],
-            'consultar_saldo' => ['saldo', 'debo', 'deuda', 'factura', 'medidor'],
+            'HABLAR_OPERADOR' => ['operador', 'humano', 'persona', 'asesor', 'alguien'],
+            'VER_FACTURA' => ['factura', 'recibo'],
+            'CONSULTAR_SALDO' => ['saldo', 'debo', 'deuda', 'cuanto debo', 'saber cuanto'],
+            'REALIZAR_PAGO' => ['pagar', 'pago', 'qr', 'transferencia'],
             'horarios' => ['horario', 'atencion', 'oficina', 'abren', 'cierran'],
-            'problemas_servicio' => ['problema', 'servicio'],
-            'rotura_caneria' => ['rotura', 'caneria'],
-            'fuga_casa' => ['fuga', 'goteo', 'filtracion'],
-            'falta_agua' => ['no tengo agua', 'sin agua', 'corte', 'suministro'],
+            'REPORTAR_PROBLEMA' => ['problema', 'servicio', 'no tengo agua', 'no hay agua', 'sin agua', 'corte', 'suministro', 'rotura', 'caneria', 'fuga', 'goteo', 'filtracion'],
             'fecha_hora' => ['que dia es', 'que fecha es', 'fecha de hoy', 'hora actual'],
-            'hablar_operador' => ['operador', 'humano', 'persona', 'asesor'],
             'despedida' => ['adios', 'chau', 'hasta luego', 'gracias', 'bye'],
         ];
 
@@ -306,12 +437,12 @@ class ConversationManager
         $response = $greeting . " Bienvenido al servicio de agua.\n\n";
         $response .= "¿En qué podemos ayudarte hoy?\n\n";
         $response .= "*MENÚ PRINCIPAL*\n";
-        $response .= "A. Consultar saldo 💧\n";
-        $response .= "B. Pagar mi deuda 💳\n";
-        $response .= "C. Horarios de atención 🕐\n";
-        $response .= "D. Problemas con mi servicio de agua 🔧\n";
-        $response .= "E. Hablar con un operador 👤\n\n";
-        $response .= "Responde con la *letra* o *número* de la opción.";
+        $response .= "1. Consultar saldo 💧\n";
+        $response .= "2. Ver factura 📄\n";
+        $response .= "3. Realizar un pago 💳\n";
+        $response .= "4. Problemas con mi servicio de agua 🔧\n";
+        $response .= "6. Hablar con un operador 👤\n\n";
+        $response .= "Responde con el *número* de la opción.";
         
         return $response;
     }
@@ -327,14 +458,67 @@ class ConversationManager
     /**
      * Manejar consulta de saldo
      */
+    private function handleMenu(Conversation $conversation): string
+    {
+        $conversation->update(['context' => array_merge($conversation->context ?? [], [
+            'waiting_for' => null,
+            'action' => null,
+            'menu_shown' => true,
+        ])]);
+
+        return "*MENÚ PRINCIPAL*\n" .
+            "1. Consultar saldo\n" .
+            "2. Ver factura\n" .
+            "3. Realizar un pago\n" .
+            "4. Reportar un problema con el servicio\n" .
+            "6. Hablar con un operador\n\n" .
+            "Responde con el número de una opción.";
+    }
+
     private function handleConsultarSaldo(Client $client, Conversation $conversation)
     {
+        $bills = $client->meters()
+            ->with(['bills' => fn ($query) => $query->whereIn('status', ['pending', 'overdue'])])
+            ->get()
+            ->flatMap(fn ($meter) => $meter->bills);
+
+        if ($bills->isNotEmpty()) {
+            $saldo = number_format((float) $bills->sum('amount'), 2);
+            $conversation->update(['context' => array_merge($conversation->context ?? [], [
+                'waiting_for' => null,
+                'action' => null,
+            ])]);
+
+            return "*SALDO PENDIENTE*\n\nEl saldo registrado para tu cuenta es: *Bs {$saldo}*.";
+        }
+
         $conversation->update(['context' => array_merge($conversation->context ?? [], [
             'waiting_for' => 'socio_nombre',
             'action' => 'consulta_saldo',
         ])]);
 
         return "Para consultar el saldo, por favor escribe el *nombre completo del socio registrado*.";
+    }
+
+    private function handleVerFactura(Client $client, Conversation $conversation): string
+    {
+        $bill = $client->meters()
+            ->with(['bills' => fn ($query) => $query->latest('issue_date')->limit(1)])
+            ->get()
+            ->flatMap(fn ($meter) => $meter->bills)
+            ->sortByDesc('issue_date')
+            ->first();
+
+        if (!$bill) {
+            $this->transferToOperator($conversation, 'factura');
+            return "No encontré una factura disponible en tu registro. Te comunicaré con un operador para que la verifique.";
+        }
+
+        return "*ÚLTIMA FACTURA*\n\n" .
+            "Número: *{$bill->bill_number}*\n" .
+            "Monto: *Bs {$bill->amount}*\n" .
+            "Estado: *{$bill->status}*\n" .
+            "Vencimiento: *{$bill->due_date?->format('d/m/Y')}*";
     }
 
     private function processSocioNameInput(Client $client, Conversation $conversation, string $text): string
@@ -596,9 +780,11 @@ class ConversationManager
             'priority' => 'high',
             'context' => array_merge($conversation->context ?? [], [
                 'waiting_for' => null,
+                'operator_required' => true,
                 'operator_reason' => $reason,
             ]),
         ]);
+        ConversationStatusChanged::dispatch($conversation->fresh());
 
         Message::create([
             'conversation_id' => $conversation->id,
@@ -616,8 +802,14 @@ class ConversationManager
         // Transferir conversación
         $conversation->update([
             'status' => 'transferred',
-            'priority' => 'high'
+            'priority' => 'high',
+            'context' => array_merge($conversation->context ?? [], [
+                'waiting_for' => null,
+                'operator_required' => true,
+                'operator_reason' => 'solicitud_usuario',
+            ]),
         ]);
+        ConversationStatusChanged::dispatch($conversation->fresh());
         
         Message::create([
             'conversation_id' => $conversation->id,

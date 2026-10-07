@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use Illuminate\Http\UploadedFile;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -184,9 +186,9 @@ class WhatsAppAPIService
 
     public function downloadIncomingMedia(string $mediaId, string $extension = 'bin'): ?string
     {
-        $media = Http::withToken($this->accessToken)->get("{$this->apiUrl}/{$mediaId}");
+        $media = $this->requestWithRetry(fn () => Http::withToken($this->accessToken)->get("{$this->apiUrl}/{$mediaId}"));
         if ($media->failed() || !$media->json('url')) return null;
-        $binary = Http::withToken($this->accessToken)->get($media->json('url'));
+        $binary = $this->requestWithRetry(fn () => Http::withToken($this->accessToken)->get($media->json('url')));
         if ($binary->failed()) return null;
         $path = 'proofs/' . $mediaId . '.' . $extension;
         return Storage::disk('public')->put($path, $binary->body())
@@ -305,17 +307,18 @@ class WhatsAppAPIService
             $payload = ['messaging_product' => 'whatsapp'] + $payload;
         }
 
-        $response = Http::connectTimeout(2)->timeout(4)
+        $response = $this->requestWithRetry(fn () => Http::connectTimeout(2)
+            ->timeout(4)
             ->withToken($this->accessToken)
             ->acceptJson()
-            ->post("{$this->apiUrl}/{$this->phoneNumberId}/messages", $payload);
+            ->post("{$this->apiUrl}/{$this->phoneNumberId}/messages", $payload));
 
         if ($response->failed()) {
             Log::channel('whatsapp')->error('WhatsApp Cloud API error', [
                 'status' => $response->status(),
                 'response' => $response->json(),
             ]);
-            throw new \RuntimeException($response->json('error.message') ?? 'WhatsApp Cloud API rechazó la solicitud.');
+            throw new \RuntimeException($response->json('error.message') ?? 'WhatsApp Cloud API rechazó la solicitud.', $response->status());
         }
 
         return ['success' => true, 'data' => $response->json()];
@@ -327,7 +330,8 @@ class WhatsAppAPIService
             return 'dev-media-' . uniqid();
         }
 
-        $response = Http::connectTimeout(2)->timeout(4)
+        $response = $this->requestWithRetry(fn () => Http::connectTimeout(2)
+            ->timeout(4)
             ->withToken($this->accessToken)
             ->attach('file', fopen($path, 'rb'), basename($path), [
                 'Content-Type' => $mime,
@@ -335,10 +339,10 @@ class WhatsAppAPIService
             ->post("{$this->apiUrl}/{$this->phoneNumberId}/media", [
                 'messaging_product' => 'whatsapp',
                 'type' => $mime,
-            ]);
+            ]));
 
         if ($response->failed() || !$response->json('id')) {
-            throw new \RuntimeException($response->json('error.message') ?? 'No se pudo subir el archivo a WhatsApp.');
+            throw new \RuntimeException($response->json('error.message') ?? 'No se pudo subir el archivo a WhatsApp.', $response->status());
         }
 
         return $response->json('id');
@@ -366,5 +370,33 @@ class WhatsAppAPIService
             'pago_transferencia' => 'pagar_transferencia',
             'pago_oficina' => 'pagar_oficina',
         ][$id] ?? $title ?? '';
+    }
+
+    private function requestWithRetry(callable $request): Response
+    {
+        $lastException = null;
+
+        for ($attempt = 1; $attempt <= 3; $attempt++) {
+            try {
+                $response = $request();
+                if (!$this->retryableStatus($response->status()) || $attempt === 3) {
+                    return $response;
+                }
+            } catch (ConnectionException $exception) {
+                $lastException = $exception;
+                if ($attempt === 3) {
+                    throw $exception;
+                }
+            }
+
+            usleep($attempt * 300000);
+        }
+
+        throw $lastException ?? new \RuntimeException('No se obtuvo respuesta de WhatsApp Cloud API.');
+    }
+
+    private function retryableStatus(int $status): bool
+    {
+        return in_array($status, [408, 429, 500, 502, 503, 504], true);
     }
 }

@@ -1,9 +1,27 @@
+<!-- index.html -->
 <!doctype html>
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WhatsApp Simulator</title>
+    <title>EPSA CRM</title>
+
+    <!-- Aplica el tema ANTES de que se pinte la página -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('water-crm-theme') || 'system';
+          var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var resolved = stored === 'system' ? (systemDark ? 'dark' : 'light') : stored;
+          if (resolved === 'dark') {
+            document.documentElement.classList.add('dark');
+          }
+          document.documentElement.style.colorScheme = resolved;
+        } catch (e) {
+          /* noop */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

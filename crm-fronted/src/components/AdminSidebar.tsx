@@ -1,18 +1,34 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Bot, ChevronLeft, ChevronRight, Gauge, Inbox, MessageCircle, Moon, Settings, Sparkles, Sun, Ticket, Users, UserRound, Volume2, VolumeX } from 'lucide-react';
+import {
+  BarChart3,
+  Bell,
+  BellOff,
+  Bot,
+  ChevronLeft,
+  ChevronRight,
+  GitBranch,
+  MessageCircle,
+  Moon,
+  Settings,
+  Sun,
+  Ticket,
+  Users,
+  X,
+  Zap,
+} from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
+import type { SidebarCounts } from '../lib/constants';
 
-const items = [
-  { path: '/admin', label: 'Resumen', icon: Gauge, end: true },
-  { path: '/admin/conversations', label: 'Conversaciones', icon: Inbox },
-  { path: '/admin/operator', label: 'Chat WA', icon: MessageCircle },
-  { path: '/admin/clients', label: 'Clientes', icon: Users },
-  { path: '/admin/tickets', label: 'Tickets', icon: Ticket },
-  { path: '/admin/ia-monitor', label: 'Monitor IA', icon: Bot },
-  { path: '/admin/intents', label: 'Intenciones', icon: Sparkles },
-  { path: '/admin/settings', label: 'Configuración', icon: Settings },
-  { path: '/admin/profile', label: 'Perfil', icon: UserRound },
-];
+export const SIDEBAR_WIDTH_EXPANDED = 248;
+export const SIDEBAR_WIDTH_COMPACT = 82;
+
+interface OperatorProfile {
+  name: string;
+  role: string;
+  status: 'online' | 'offline';
+  avatar?: string;
+}
 
 interface AdminSidebarProps {
   collapsed?: boolean;
@@ -21,66 +37,168 @@ interface AdminSidebarProps {
   onCloseMobile?: () => void;
   soundEnabled?: boolean;
   onToggleSound?: () => void;
+  counts?: SidebarCounts;
+  operator?: OperatorProfile;
 }
 
-const AdminSidebar: React.FC<AdminSidebarProps> = ({
+const items = [
+  { path: '/admin/operator', label: 'Conversaciones', icon: MessageCircle, end: true },
+  { path: '/admin/clients', label: 'Contactos', icon: Users },
+  { path: '/admin/ia-monitor', label: 'Automatizaciones', icon: Bot },
+  { path: '/admin/tickets', label: 'Tickets', icon: Ticket },
+  { path: '/admin/conversations', label: 'Embudos', icon: GitBranch },
+  { path: '/admin/intents', label: 'Respuestas rápidas', icon: Zap },
+  { path: '/admin', label: 'Reportes', icon: BarChart3, end: true },
+  { path: '/admin/settings', label: 'Configuración', icon: Settings },
+];
+
+const initials = (name: string) =>
+  name
+    .split(' ')
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
+export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   collapsed = false,
   onToggle,
   mobileOpen,
   onCloseMobile,
-  soundEnabled,
+  soundEnabled = true,
   onToggleSound,
+  counts = { all: 0, pending: 0, attention: 0, active: 0, closed: 0 },
+  operator = { name: 'María García', role: 'Administradora', status: 'online' },
 }) => {
-  const [dark, setDark] = useState(() => localStorage.getItem('water-crm-theme') !== 'light');
-  const showDetails = !collapsed;
-  useEffect(() => { document.documentElement.classList.toggle('dark', dark); localStorage.setItem('water-crm-theme', dark ? 'dark' : 'light'); }, [dark]);
-  useEffect(() => {
-    const syncTheme = (event: Event) => setDark(Boolean((event as CustomEvent<boolean>).detail));
-    window.addEventListener('water-crm-theme-change', syncTheme);
-    return () => window.removeEventListener('water-crm-theme-change', syncTheme);
-  }, []);
+  const { mode, isDark, toggle } = useTheme();
+  const compact = Boolean(collapsed && !mobileOpen);
 
-  return <>
-  <aside className={`fixed inset-y-0 left-0 z-30 flex flex-col overflow-y-auto border-r border-sky-200 bg-white text-slate-900 shadow-sm transition-[width] duration-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white ${collapsed ? 'w-16' : 'w-64'}`}>
-    <div className={`border-b border-sky-100 py-6 dark:border-slate-800 ${collapsed ? 'px-2' : 'px-6'}`}>
-      <div className="flex items-center justify-between gap-2">
-        {showDetails && <p className="text-xs font-semibold uppercase text-sky-600">Water CRM IA</p>}
-        <button onClick={onToggle} title={collapsed ? 'Expandir menú' : 'Contraer menú'} className="rounded-md p-1 text-sky-600 hover:bg-sky-50 dark:hover:bg-slate-800">
-          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-        </button>
-      </div>
-      {showDetails && <><h2 className="mt-2 text-lg font-semibold">EPSA El Portillo</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Operación WhatsApp</p></>}
-    </div>
-    <nav className={`flex-1 space-y-1 py-5 ${collapsed ? 'px-2' : 'px-3'}`}>
-      {showDetails && <p className="px-3 pb-3 text-[10px] font-semibold uppercase text-slate-400">Navegación</p>}
-      {items.map((item) => {
-        const Icon = item.icon;
-        return (
-        <NavLink
-          key={item.path}
-          to={item.path}
-          end={item.end}
-          title={collapsed ? item.label : undefined}
-          onClick={onCloseMobile}
-          className={({ isActive }) => `flex items-center rounded-md border-l-2 py-3 text-sm transition-colors ${collapsed ? 'justify-center px-2' : 'gap-3 px-3'} ${isActive ? 'border-sky-500 bg-sky-50 text-sky-800 dark:bg-sky-950/60 dark:text-sky-100' : 'border-transparent text-slate-600 hover:bg-sky-50 hover:text-sky-700 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-slate-200'}`}
-        >
-          <Icon className="h-4 w-4 text-sky-500" />
-          {showDetails && item.label}
-        </NavLink>
-      );})}
-    </nav>
-    {showDetails && (
-      <button onClick={onToggleSound} className="mx-3 mb-3 flex w-[calc(100%-1.5rem)] items-center justify-center gap-2 rounded-md border border-sky-200 px-2 py-2 text-xs text-sky-700 dark:border-slate-700 dark:text-sky-200">
-        {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-        {soundEnabled ? 'Sonido activado' : 'Sonido apagado'}
-      </button>
-    )}
-    <div className={`border-t border-sky-100 py-5 dark:border-slate-800 ${collapsed ? 'px-2 text-center' : 'px-6'}`}>
-      <button title="Cambiar modo claro/oscuro" onClick={() => { const next = !dark; setDark(next); window.dispatchEvent(new CustomEvent('water-crm-theme-change', { detail: next })); }} className="mb-4 flex w-full items-center justify-center gap-2 rounded-md border border-sky-200 px-2 py-2 text-xs text-sky-600 dark:border-slate-700 dark:text-sky-300">{dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}{!collapsed && (dark ? 'Modo claro' : 'Modo oscuro')}</button>
-      <NavLink to="/" title="Abrir CRM principal" onClick={onCloseMobile} className="text-xs text-sky-600 hover:text-sky-800 dark:text-sky-300">{showDetails ? 'Abrir CRM principal' : '↗'}</NavLink>
-    </div>
-  </aside>
-  </>
+  return (
+    <>
+      <div
+        aria-hidden={!mobileOpen}
+        className={`fixed inset-0 z-30 bg-slate-950/40 backdrop-blur-sm transition md:hidden ${
+          mobileOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
+        }`}
+        onClick={onCloseMobile}
+      />
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] shadow-[var(--shadow-md)] transition-all duration-200 ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        } md:translate-x-0 ${compact ? 'md:w-[82px]' : 'md:w-[248px]'} w-[82vw] max-w-[292px]`}
+      >
+        <div className={`flex items-center gap-3 border-b border-[var(--color-border)] px-4 py-4 ${compact ? 'justify-center' : ''}`}>
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-primary)] text-white shadow-[0_10px_28px_rgba(22,199,102,0.28)]">
+            <MessageCircle className="h-6 w-6" />
+          </div>
+          {!compact && (
+            <div className="min-w-0">
+              <p className="text-[17px] font-black leading-tight text-[var(--color-text)]">EPSA CRM</p>
+              <p className="text-xs text-[var(--color-text-muted)]">CRM de WhatsApp</p>
+            </div>
+          )}
+          {onToggle && (
+            <button
+              type="button"
+              className="ml-auto hidden h-9 w-9 items-center justify-center rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] md:flex"
+              onClick={onToggle}
+              aria-label={collapsed ? 'Expandir menú' : 'Contraer menú'}
+            >
+              {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            </button>
+          )}
+          {onCloseMobile && (
+            <button
+              type="button"
+              className="ml-auto flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-text-muted)] md:hidden"
+              onClick={onCloseMobile}
+              aria-label="Cerrar menú"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        <nav className="flex-1 space-y-1.5 overflow-y-auto px-3 py-4">
+          {items.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                end={item.end}
+                title={item.label}
+                onClick={onCloseMobile}
+                className={({ isActive }) =>
+                  `relative flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition ${
+                    isActive
+                      ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)] shadow-[inset_4px_0_0_var(--color-primary)]'
+                      : 'text-[var(--color-text-muted)] hover:bg-[var(--color-background)] hover:text-[var(--color-text)]'
+                  } ${compact ? 'justify-center' : ''}`
+                }
+              >
+                <Icon className="h-[19px] w-[19px] shrink-0" />
+                {!compact && <span className="font-semibold">{item.label}</span>}
+              </NavLink>
+            );
+          })}
+        </nav>
+
+        {!compact && (
+          <div className="mx-3 mb-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] p-3">
+            <p className="text-[11px] font-bold uppercase text-[var(--color-text-muted)]">Operación hoy</p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <Metric label="Abiertas" value={counts.active} tone="text-[var(--color-primary)]" />
+              <Metric label="Pendientes" value={counts.pending} tone="text-[var(--color-warning)]" />
+              <Metric label="Urgentes" value={counts.attention} tone="text-[var(--color-danger)]" />
+              <Metric label="Total" value={counts.all} tone="text-[var(--color-text)]" />
+            </div>
+          </div>
+        )}
+
+        <div className="border-t border-[var(--color-border)] p-3">
+          {!compact && (
+            <div className="mb-3 flex items-center gap-3 rounded-lg bg-[var(--color-background)] p-2">
+              <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-primary-soft)] text-sm font-bold text-[var(--color-primary)]">
+                {initials(operator.name)}
+                <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[var(--color-background)] bg-[var(--color-primary)]" />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold">{operator.name}</p>
+                <p className="text-xs text-[var(--color-text-muted)]">{operator.role}</p>
+              </div>
+            </div>
+          )}
+          <div className="flex justify-center gap-2">
+            {onToggleSound && (
+              <button
+                title={soundEnabled ? 'Silenciar notificaciones' : 'Activar sonido'}
+                onClick={onToggleSound}
+                className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-text-muted)] hover:text-[var(--color-primary)]"
+              >
+                {soundEnabled ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
+              </button>
+            )}
+            <button
+              title="Cambiar modo claro/oscuro"
+              onClick={toggle}
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-text-muted)] hover:text-[var(--color-primary)]"
+            >
+              {mode === 'system' ? <Sun className="h-4 w-4" /> : isDark ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+      </aside>
+    </>
+  );
 };
+
+const Metric: React.FC<{ label: string; value: number; tone: string }> = ({ label, value, tone }) => (
+  <div className="rounded-lg bg-[var(--color-surface)] px-3 py-2">
+    <p className={`text-lg font-black ${tone}`}>{value}</p>
+    <p className="text-[11px] text-[var(--color-text-muted)]">{label}</p>
+  </div>
+);
 
 export default AdminSidebar;

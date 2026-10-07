@@ -85,7 +85,7 @@ const MessageInput: React.FC = () => {
   };
 
   return (
-    <div className="bg-gray-100 p-4 flex gap-3">
+    <div className="bg-muted p-4 flex gap-3">
       <input
         type="text"
         value={inputMessage}

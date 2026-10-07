@@ -10,7 +10,8 @@ use App\Http\Controllers\Api\V1\TicketController;
 use App\Http\Controllers\Api\V1\IntentController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\OperatorController;
-use App\Http\Middleware\EnsureCors;
+use App\Http\Middleware\VerifyWhatsAppWebhook;
+use App\Http\Middleware\ApiAuthentication;
 use Illuminate\Http\Request;
 
 /*
@@ -19,28 +20,20 @@ use Illuminate\Http\Request;
 |--------------------------------------------------------------------------
 */
 
-Route::options('{any}', function (Request $request) {
-    $response = response('', 204);
-
-    $response->headers->set('Access-Control-Allow-Origin', '*');
-    $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    $response->headers->set('Access-Control-Allow-Headers', '*');
-    $response->headers->set('Access-Control-Max-Age', '86400');
-
-    return $response;
-})->where('any', '.*');
-
-Route::middleware(EnsureCors::class)->prefix('v1')->group(function () {
+Route::prefix('v1')->group(function () {
     
     // WhatsApp Webhooks
     Route::prefix('whatsapp')->group(function () {
-        Route::get('/webhook', [WhatsAppController::class, 'verifyWebhook']);
-        Route::post('/webhook', [WhatsAppController::class, 'webhook']);
-        Route::post('/send-message', [WhatsAppController::class, 'sendMessage']);
-        Route::get('/business-profile', [WhatsAppController::class, 'businessProfile']);
-        Route::post('/business-profile', [WhatsAppController::class, 'updateBusinessProfile']);
-        Route::get('/status', [WhatsAppController::class, 'status']);
+        Route::get('/webhook', [WhatsAppController::class, 'verifyWebhook'])->middleware('throttle:whatsapp-webhook');
+        Route::post('/webhook', [WhatsAppController::class, 'webhook'])
+            ->middleware([VerifyWhatsAppWebhook::class, 'throttle:whatsapp-webhook']);
+        Route::post('/send-message', [WhatsAppController::class, 'sendMessage'])->middleware(['throttle:crm-api', ApiAuthentication::class]);
+        Route::get('/business-profile', [WhatsAppController::class, 'businessProfile'])->middleware(['throttle:crm-api', ApiAuthentication::class]);
+        Route::post('/business-profile', [WhatsAppController::class, 'updateBusinessProfile'])->middleware(['throttle:crm-api', ApiAuthentication::class]);
+        Route::get('/status', [WhatsAppController::class, 'status'])->middleware('throttle:crm-api');
     });
+
+    Route::middleware(['throttle:crm-api', ApiAuthentication::class])->group(function () {
     
     // Clientes
     Route::apiResource('clients', ClientController::class);
@@ -85,9 +78,11 @@ Route::middleware(EnsureCors::class)->prefix('v1')->group(function () {
         Route::patch('/payment/{messageId}', [OperatorController::class, 'reviewPayment']);
         Route::post('/conversation/{conversationId}/invoice', [OperatorController::class, 'sendInvoice']);
         Route::post('/conversation/{conversationId}/location', [OperatorController::class, 'sendLocation']);
+        Route::post('/conversation/{conversationId}/note', [OperatorController::class, 'storeNote']);
+        Route::post('/conversation/{conversationId}/request-close', [OperatorController::class, 'requestClose']);
         Route::post('/broadcast', [OperatorController::class, 'broadcast']);
         Route::post('/transfer/{conversationId}', [OperatorController::class, 'transfer']);
         Route::post('/close/{conversationId}', [OperatorController::class, 'close']);
     });
-    
+    });
 });
