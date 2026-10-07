@@ -387,7 +387,7 @@ class WhatsAppController extends Controller
                 'address' => 'nullable|string|max:256',
                 'description' => 'nullable|string|max:512',
                 'email' => 'nullable|email|max:128',
-                'vertical' => 'nullable|string|max:64',
+                'vertical' => 'nullable|string|in:UNDEFINED,OTHER,AUTO,BEAUTY,APPAREL,EDU,ENTERTAIN,EVENT_PLAN,FINANCE,GROCERY,GOVT,HOTEL,HEALTH,NONPROFIT,PROF_SERVICES,RETAIL,TRAVEL,RESTAURANT,NOT_A_BIZ',
                 'website' => 'nullable|url|max:256',
                 'photo' => 'nullable|file|image|mimes:jpg,jpeg,png|max:5120',
             ]);

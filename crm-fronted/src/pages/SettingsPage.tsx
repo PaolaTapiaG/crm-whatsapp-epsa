@@ -44,13 +44,15 @@ const profileDefaults: WhatsAppProfile = {
 };
 
 const verticalOptions = [
+  { value: 'OTHER', label: 'Servicios publicos / otro' },
   { value: 'PROF_SERVICES', label: 'Servicios profesionales' },
-  { value: 'UTILITY', label: 'Servicios publicos' },
-  { value: 'OTHER', label: 'Otro' },
   { value: 'EDU', label: 'Educacion' },
   { value: 'GOVT', label: 'Gobierno' },
   { value: 'HEALTH', label: 'Salud' },
   { value: 'NONPROFIT', label: 'Sin fines de lucro' },
+  { value: 'RETAIL', label: 'Comercio' },
+  { value: 'FINANCE', label: 'Finanzas' },
+  { value: 'NOT_A_BIZ', label: 'No comercial' },
 ];
 
 const fieldClass =

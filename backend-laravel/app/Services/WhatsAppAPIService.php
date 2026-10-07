@@ -144,13 +144,19 @@ class WhatsAppAPIService
         }
 
         $upload = Http::connectTimeout(2)->timeout(20)
-            ->withToken($this->accessToken)
-            ->withHeaders(['file_offset' => '0'])
+            ->withHeaders([
+                'Authorization' => 'OAuth ' . $this->accessToken,
+                'Content-Type' => $mime,
+                'file_offset' => '0',
+            ])
             ->withBody($contents, $mime)
             ->post("{$this->apiUrl}/{$session->json('id')}");
 
         if ($upload->failed() || !$upload->json('h')) {
-            throw new \RuntimeException($upload->json('error.message') ?? 'Meta no pudo completar la carga de la foto.');
+            $message = $upload->json('error.message')
+                ?? $upload->json('error.error_user_msg')
+                ?? 'Meta no pudo completar la carga de la foto. Usa una imagen JPG o PNG cuadrada, menor a 5 MB.';
+            throw new \RuntimeException($message);
         }
 
         return (string) $upload->json('h');

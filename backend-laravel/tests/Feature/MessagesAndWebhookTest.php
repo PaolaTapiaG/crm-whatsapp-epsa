@@ -8,6 +8,8 @@ use App\Models\Client;
 use App\Models\Conversation;
 use App\Models\Message;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use App\Services\WhatsAppAPIService;
@@ -155,5 +157,39 @@ class MessagesAndWebhookTest extends TestCase
         app(WhatsAppAPIService::class)->sendTextMessage('59170000001', 'dos');
 
         Http::assertNothingSent();
+    }
+
+    public function test_business_profile_photo_upload_uses_resumable_oauth_header(): void
+    {
+        config([
+            'whatsapp.api_url' => 'https://graph.facebook.com/v19.0',
+            'whatsapp.phone_number_id' => 'phone-id',
+            'whatsapp.app_id' => 'app-id',
+            'whatsapp.access_token' => 'access-token',
+        ]);
+
+        Http::fake([
+            'graph.facebook.com/v19.0/app-id/uploads' => Http::response(['id' => 'upload-session-id'], 200),
+            'graph.facebook.com/v19.0/upload-session-id' => Http::response(['h' => 'picture-handle'], 200),
+            'graph.facebook.com/v19.0/phone-id/whatsapp_business_profile' => Http::response(['success' => true], 200),
+        ]);
+
+        app(WhatsAppAPIService::class)->updateBusinessProfile([
+            'about' => 'EPSA',
+            'address' => 'Oficina central',
+            'description' => 'Servicio de agua',
+            'vertical' => 'OTHER',
+        ], UploadedFile::fake()->image('logo.jpg', 640, 640));
+
+        Http::assertSent(function (Request $request) {
+            return $request->url() === 'https://graph.facebook.com/v19.0/upload-session-id'
+                && $request->hasHeader('Authorization', 'OAuth access-token')
+                && $request->hasHeader('file_offset', '0');
+        });
+
+        Http::assertSent(function (Request $request) {
+            return $request->url() === 'https://graph.facebook.com/v19.0/phone-id/whatsapp_business_profile'
+                && ($request->data()['profile_picture_handle'] ?? null) === 'picture-handle';
+        });
     }
 }
