@@ -2,6 +2,9 @@
 
 namespace App\Jobs;
 
+use App\Exceptions\WhatsAppQuotaExceededException;
+use App\Models\Conversation;
+use App\Models\Message;
 use App\Services\WhatsAppAPIService;
 use App\Services\WhatsAppService;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -73,6 +76,10 @@ class ProcessMessageJob implements ShouldQueue
                     $this->payload['media_extension'] ?? 'bin'
                 );
             } catch (\Throwable $exception) {
+                if ($exception instanceof WhatsAppQuotaExceededException) {
+                    $this->activateEmergencyMode($exception->quota);
+                    return;
+                }
                 if ($this->isPermanentClientError($exception)) {
                     Log::channel('whatsapp')->warning('Meta rechazó la descarga del media', [
                         'media_id' => $this->payload['media_id'],
@@ -111,6 +118,43 @@ class ProcessMessageJob implements ShouldQueue
                 throw $exception;
             }
         }
+    }
+
+    private function activateEmergencyMode(array $quota): void
+    {
+        $conversation = Conversation::where('session_id', 'wa-' . ($this->payload['from'] ?? ''))
+            ->latest()
+            ->first();
+
+        if ($conversation) {
+            $conversation->update([
+                'status' => 'transferred',
+                'priority' => 'high',
+                'context' => array_merge($conversation->context ?? [], [
+                    'operator_required' => true,
+                    'quota_emergency' => true,
+                    'quota_status' => $quota['status'] ?? 'exceeded',
+                ]),
+            ]);
+
+            Message::create([
+                'conversation_id' => $conversation->id,
+                'sender' => 'system',
+                'sender_type' => 'system',
+                'text' => 'Emergencia de cuota: no se envio respuesta automatica porque se supero la cuota mensual gratuita de WhatsApp.',
+                'content' => 'Emergencia de cuota: no se envio respuesta automatica porque se supero la cuota mensual gratuita de WhatsApp.',
+                'internal' => true,
+                'metadata' => [
+                    'kind' => 'quota_emergency',
+                    'quota' => $quota,
+                ],
+            ]);
+        }
+
+        Log::channel('whatsapp')->critical('Cuota mensual de WhatsApp superada; respuesta automatica bloqueada', [
+            'from' => $this->payload['from'] ?? null,
+            'quota' => $quota,
+        ]);
     }
 
     private function isPermanentClientError(\Throwable $exception): bool

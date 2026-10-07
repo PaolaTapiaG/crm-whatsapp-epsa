@@ -30,4 +30,21 @@ return [
     */
     'development_mode' => env('WHATSAPP_DEV_MODE', false),
     'simulator_url' => env('WHATSAPP_SIMULATOR_URL', 'http://localhost:3000'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Monthly free service-message quota guard
+    |--------------------------------------------------------------------------
+    |
+    | Meta's official billing remains the source of truth. This guard estimates
+    | monthly usage from outgoing CRM messages and warns before the free tier is
+    | exhausted. Set emergency_mode to "monitor" to warn without blocking.
+    |
+    */
+    'quota' => [
+        'free_service_messages' => (int) env('WHATSAPP_FREE_SERVICE_MESSAGES', 1000),
+        'warning_threshold' => (int) env('WHATSAPP_QUOTA_WARNING_THRESHOLD', 850),
+        'critical_threshold' => (int) env('WHATSAPP_QUOTA_CRITICAL_THRESHOLD', 950),
+        'emergency_mode' => env('WHATSAPP_QUOTA_EMERGENCY_MODE', 'block_auto'),
+    ],
 ];

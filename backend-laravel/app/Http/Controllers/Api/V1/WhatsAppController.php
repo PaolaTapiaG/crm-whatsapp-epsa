@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Jobs\ProcessMessageJob;
 use App\Services\WhatsAppAPIService;
+use App\Services\WhatsAppQuotaService;
 use App\Services\WhatsAppService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -356,6 +357,25 @@ class WhatsAppController extends Controller
                     ? env('GROQ_MODEL', 'llama-3.1-8b-instant')
                     : env('OLLAMA_MODEL', 'qwen3:8b'),
             ]
+        ]);
+    }
+
+    public function quota(WhatsAppQuotaService $quota)
+    {
+        return response()->json([
+            'success' => true,
+            'data' => $quota->usage() + [
+                'emergency_plan' => [
+                    'block_auto_responses' => true,
+                    'transfer_to_human' => true,
+                    'recommended_actions' => [
+                        'Responder manualmente solo casos urgentes desde WhatsApp Business App.',
+                        'Pausar campañas, envios masivos y respuestas automaticas no criticas.',
+                        'Priorizar llamadas telefonicas o atencion presencial hasta el reinicio mensual.',
+                        'Revisar facturacion de Meta y aumentar presupuesto si se decide continuar por API.',
+                    ],
+                ],
+            ],
         ]);
     }
 

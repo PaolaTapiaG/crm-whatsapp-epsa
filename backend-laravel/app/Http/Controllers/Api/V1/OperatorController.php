@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Exceptions\WhatsAppQuotaExceededException;
 use App\Events\ConversationStatusChanged;
 use App\Models\Conversation;
 use App\Models\Message;
@@ -58,7 +59,16 @@ class OperatorController extends Controller
             'conversation_id' => 'required|exists:conversations,id',
         ]);
 
-        $result = $this->whatsApp->sendTextMessage($data['to'], $data['text']);
+        try {
+            $result = $this->whatsApp->sendTextMessage($data['to'], $data['text']);
+        } catch (WhatsAppQuotaExceededException $exception) {
+            return response()->json([
+                'success' => false,
+                'error' => 'La cuota gratuita mensual de WhatsApp fue superada. El mensaje no fue enviado para evitar cargos no planificados.',
+                'quota' => $exception->quota,
+                'emergency_action' => 'Usa WhatsApp Business App, llamada telefonica o atencion presencial para casos urgentes; pausa automatizaciones y envios masivos hasta el reinicio mensual.',
+            ], 409);
+        }
         Message::create([
             'conversation_id' => $data['conversation_id'],
             'sender' => 'human',

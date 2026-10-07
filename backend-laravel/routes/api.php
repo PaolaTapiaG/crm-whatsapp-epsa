@@ -30,6 +30,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/business-profile', [WhatsAppController::class, 'businessProfile'])->middleware(['throttle:crm-api', ApiAuthentication::class]);
         Route::post('/business-profile', [WhatsAppController::class, 'updateBusinessProfile'])->middleware(['throttle:crm-api', ApiAuthentication::class]);
         Route::get('/status', [WhatsAppController::class, 'status'])->middleware('throttle:crm-api');
+        Route::get('/quota', [WhatsAppController::class, 'quota'])->middleware(['throttle:crm-api', ApiAuthentication::class]);
     });
 
     Route::middleware(['throttle:crm-api', ApiAuthentication::class])->group(function () {

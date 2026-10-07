@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Bell, ChevronDown, Menu, Plus, Search } from 'lucide-react';
+import { AlertTriangle, Bell, ChevronDown, Menu, Plus, Search } from 'lucide-react';
 import AdminSidebar, {
   SIDEBAR_WIDTH_COMPACT,
   SIDEBAR_WIDTH_EXPANDED,
@@ -139,6 +139,7 @@ const OperatorChatPage: React.FC = () => {
   const [attachmentAction, setAttachmentAction] = useState<AttachmentAction>('menu');
   const [invoice, setInvoice] = useState(initialInvoice);
   const [notice, setNotice] = useState('');
+  const [quota, setQuota] = useState<any>(null);
 
   const [location] = useState<CompanyLocation>(() =>
     readStored('water-crm-company-location', {
@@ -152,6 +153,24 @@ const OperatorChatPage: React.FC = () => {
   useEffect(() => {
     writeStored('water-crm-company-location', location);
   }, [location]);
+
+  useEffect(() => {
+    let active = true;
+    const loadQuota = async () => {
+      try {
+        const next = await api.getWhatsAppQuota();
+        if (active) setQuota(next);
+      } catch {
+        if (active) setQuota(null);
+      }
+    };
+    loadQuota();
+    const timer = window.setInterval(loadQuota, 60000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, []);
 
   /* ------------------------------------------------------------------ */
   /* Efectos sobre la conversación activa                                */
@@ -417,6 +436,38 @@ const OperatorChatPage: React.FC = () => {
                 >
                   Cerrar
                 </button>
+              </div>
+            )}
+
+            {quota && quota.status !== 'ok' && (
+              <div className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
+                quota.status === 'exceeded'
+                  ? 'border-[var(--color-danger)] bg-[var(--color-danger)]/10 text-[var(--color-text)]'
+                  : quota.status === 'critical'
+                    ? 'border-[var(--color-warning)] bg-[var(--color-warning)]/10 text-[var(--color-text)]'
+                    : 'border-[var(--color-primary-border)] bg-[var(--color-primary-soft)] text-[var(--color-text)]'
+              }`}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex gap-3">
+                    <AlertTriangle className={`mt-0.5 h-5 w-5 ${quota.status === 'exceeded' ? 'text-[var(--color-danger)]' : 'text-[var(--color-warning)]'}`} />
+                    <div>
+                      <p className="font-black">
+                        {quota.status === 'exceeded'
+                          ? 'Cuota mensual de WhatsApp superada'
+                          : quota.status === 'critical'
+                            ? 'Cuota de WhatsApp en nivel critico'
+                            : 'Cuota de WhatsApp cerca del limite'}
+                      </p>
+                      <p className="mt-1 text-[var(--color-text-muted)]">
+                        Uso estimado: {quota.used} de {quota.limit} mensajes salientes este mes ({quota.percent}%).
+                        {quota.status === 'exceeded' ? ' Se bloquearan respuestas automaticas para evitar cargos no planificados.' : ` Restantes: ${quota.remaining}.`}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="rounded-full bg-[var(--color-background)] px-3 py-1 text-xs font-black text-[var(--color-text)]">
+                    Reinicia {quota.period_end}
+                  </span>
+                </div>
               </div>
             )}
 

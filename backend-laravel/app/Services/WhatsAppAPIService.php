@@ -8,6 +8,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use App\Services\WhatsAppQuotaService;
 
 class WhatsAppAPIService
 {
@@ -303,6 +304,7 @@ class WhatsAppAPIService
         }
 
         if ($includeRecipient) {
+            app(WhatsAppQuotaService::class)->ensureCanSend();
             $payload = ['messaging_product' => 'whatsapp', 'recipient_type' => 'individual', 'to' => preg_replace('/[^0-9]/', '', $to)] + $payload;
         } else {
             $payload = ['messaging_product' => 'whatsapp'] + $payload;

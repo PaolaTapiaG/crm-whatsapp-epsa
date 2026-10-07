@@ -3,11 +3,14 @@
 namespace Tests\Feature;
 
 use App\Jobs\ProcessMessageJob;
+use App\Exceptions\WhatsAppQuotaExceededException;
 use App\Models\Client;
 use App\Models\Conversation;
 use App\Models\Message;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use App\Services\WhatsAppAPIService;
 use Tests\TestCase;
 
 class MessagesAndWebhookTest extends TestCase
@@ -109,5 +112,48 @@ class MessagesAndWebhookTest extends TestCase
         $this->assertSame(3, $job->tries);
         $this->assertSame(90, $job->timeout);
         $this->assertSame([10, 30, 60], $job->backoff());
+    }
+
+    public function test_whatsapp_quota_endpoint_warns_near_limit(): void
+    {
+        config([
+            'services.crm.api_token' => 'test-crm-token',
+            'whatsapp.quota.free_service_messages' => 3,
+            'whatsapp.quota.warning_threshold' => 2,
+            'whatsapp.quota.critical_threshold' => 3,
+        ]);
+        $conversation = Conversation::factory()->create();
+        Message::create(['conversation_id' => $conversation->id, 'sender' => 'bot', 'text' => 'uno']);
+        Message::create(['conversation_id' => $conversation->id, 'sender' => 'human', 'text' => 'dos']);
+
+        $response = $this->withHeader('Authorization', 'Bearer test-crm-token')
+            ->getJson('/api/v1/whatsapp/quota')
+            ->assertOk()
+            ->json('data');
+
+        $this->assertSame('warning', $response['status']);
+        $this->assertSame(2, $response['used']);
+        $this->assertSame(1, $response['remaining']);
+    }
+
+    public function test_whatsapp_send_is_blocked_when_quota_is_exceeded(): void
+    {
+        Http::fake();
+        config([
+            'whatsapp.phone_number_id' => 'phone-id',
+            'whatsapp.access_token' => 'access-token',
+            'whatsapp.development_mode' => false,
+            'whatsapp.quota.free_service_messages' => 1,
+            'whatsapp.quota.warning_threshold' => 1,
+            'whatsapp.quota.critical_threshold' => 1,
+            'whatsapp.quota.emergency_mode' => 'block_auto',
+        ]);
+        $conversation = Conversation::factory()->create();
+        Message::create(['conversation_id' => $conversation->id, 'sender' => 'bot', 'text' => 'uno']);
+
+        $this->expectException(WhatsAppQuotaExceededException::class);
+        app(WhatsAppAPIService::class)->sendTextMessage('59170000001', 'dos');
+
+        Http::assertNothingSent();
     }
 }

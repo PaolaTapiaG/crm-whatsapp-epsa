@@ -57,6 +57,11 @@ export const api = {
     }
   },
 
+  async getWhatsAppQuota() {
+    const response = await requestWithRetry(() => axios.get(`${V1_URL}/whatsapp/quota`));
+    return response.data.data;
+  },
+
   async updateWhatsAppProfile(profile: { about: string; address: string; description: string; website?: string; email?: string; vertical?: string }, photo?: File) {
     const form = new FormData();
     form.append('about', profile.about);
