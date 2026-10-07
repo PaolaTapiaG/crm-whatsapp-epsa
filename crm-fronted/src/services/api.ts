@@ -57,12 +57,14 @@ export const api = {
     }
   },
 
-  async updateWhatsAppProfile(profile: { about: string; address: string; description: string; website?: string }, photo?: File) {
+  async updateWhatsAppProfile(profile: { about: string; address: string; description: string; website?: string; email?: string; vertical?: string }, photo?: File) {
     const form = new FormData();
     form.append('about', profile.about);
     form.append('address', profile.address);
     form.append('description', profile.description);
     if (profile.website) form.append('website', profile.website);
+    if (profile.email) form.append('email', profile.email);
+    if (profile.vertical) form.append('vertical', profile.vertical);
     if (photo) form.append('photo', photo);
     const response = await axios.post(`${V1_URL}/whatsapp/business-profile`, form);
     return response.data;

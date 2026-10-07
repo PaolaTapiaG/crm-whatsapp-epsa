@@ -91,7 +91,8 @@ class WhatsAppAPIService
             'about' => $profile['about'] ?? '',
             'address' => $profile['address'] ?? '',
             'description' => $profile['description'] ?? '',
-            'vertical' => 'PROF_SERVICES',
+            'email' => $profile['email'] ?? '',
+            'vertical' => $profile['vertical'] ?? 'PROF_SERVICES',
             'websites' => array_values(array_filter([
                 $profile['website'] ?? null,
             ])),
