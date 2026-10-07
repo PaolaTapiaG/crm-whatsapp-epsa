@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../services/api';
 import { mockMessages, type Message } from '../lib/constants';
 
-const fallbackMessages = import.meta.env.PROD ? {} : mockMessages;
+const demoDataEnabled = String(import.meta.env.VITE_USE_DEMO_DATA || '').toLowerCase() === 'true';
+const fallbackMessages = demoDataEnabled ? mockMessages : {};
 
 export const useMessages = (conversationId?: number, pollMs = 5000) => {
   const [messages, setMessages] = useState<Message[]>(() =>

@@ -7,7 +7,8 @@ interface UseConversationsOptions {
   pollMs?: number;
 }
 
-const fallbackConversations = import.meta.env.PROD ? [] : mockConversations;
+const demoDataEnabled = String(import.meta.env.VITE_USE_DEMO_DATA || '').toLowerCase() === 'true';
+const fallbackConversations = demoDataEnabled ? mockConversations : [];
 
 export const useConversations = ({
   onNewMessage,
