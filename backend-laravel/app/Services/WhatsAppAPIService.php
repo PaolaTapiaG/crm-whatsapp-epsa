@@ -36,7 +36,7 @@ class WhatsAppAPIService
     public function sendImage(string $to, UploadedFile $file): array
     {
         $mediaId = $this->uploadMedia($file->getRealPath(), $file->getMimeType() ?: 'image/jpeg');
-        return $this->send($to, ['type' => 'image', 'image' => ['id' => $mediaId]]);
+        return $this->send($to, ['type' => 'image', 'image' => ['id' => $mediaId]]) + ['media_id' => $mediaId];
     }
 
     public function sendAudio(string $to, UploadedFile $file): array
@@ -52,7 +52,22 @@ class WhatsAppAPIService
         $type = str_starts_with($mime, 'image/') ? 'image' : 'document';
         $content = [$type => ['id' => $mediaId]];
         if ($type === 'document') $content[$type]['filename'] = $file->getClientOriginalName();
-        return $this->send($to, ['type' => $type] + $content);
+        return $this->send($to, ['type' => $type] + $content) + ['media_id' => $mediaId];
+    }
+
+    public function getMedia(string $mediaId): array
+    {
+        $media = Http::connectTimeout(2)->timeout(10)->withToken($this->accessToken)
+            ->get("{$this->apiUrl}/{$mediaId}");
+        if ($media->failed() || !$media->json('url')) {
+            throw new \RuntimeException('No se pudo consultar el archivo de WhatsApp.');
+        }
+        $binary = Http::connectTimeout(2)->timeout(20)->withToken($this->accessToken)
+            ->get($media->json('url'));
+        if ($binary->failed()) {
+            throw new \RuntimeException('No se pudo descargar el archivo de WhatsApp.');
+        }
+        return ['body' => $binary->body(), 'mime' => $media->json('mime_type') ?: 'application/octet-stream'];
     }
 
     public function sendContact(string $to, string $name, string $phone): array

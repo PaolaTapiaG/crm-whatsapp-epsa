@@ -1,18 +1,28 @@
-import React from 'react';
-import { Bot, Mail, MapPin, MessageCircle, Phone, ShieldCheck, Ticket, UserPlus, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Bot, Mail, MapPin, MessageCircle, Phone, ShieldCheck, Ticket, X } from 'lucide-react';
 import type { Conversation } from '../../lib/constants';
+import { api } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
 interface Props {
   conversation: Conversation;
   onClose: () => void;
   onRequestClose: () => void;
+  onAssign: (userId: number | null) => void;
 }
 
 export const ClientPanel: React.FC<Props> = ({
   conversation,
   onClose,
   onRequestClose,
+  onAssign,
 }) => {
+  const { enabled } = useAuth();
+  const [team, setTeam] = useState<Array<{ id: number; name: string }>>([]);
+  useEffect(() => {
+    if (enabled) void api.getTeam().then(setTeam).catch(() => setTeam([]));
+  }, [enabled]);
   const initials = (conversation.client?.name || 'C')
     .split(' ')
     .map((p) => p[0])
@@ -24,8 +34,8 @@ export const ClientPanel: React.FC<Props> = ({
   const isClosed = ['finished', 'closed'].includes(conversation.status);
 
   return (
-    <aside className="border-l border-[var(--color-border)] bg-[var(--color-surface)]">
-      <div className="flex h-full flex-col">
+    <aside className="min-h-0 overflow-hidden border-l border-[var(--color-border)] bg-[var(--color-surface)]">
+      <div className="flex h-full min-h-0 flex-col">
         <div className="flex items-center justify-between border-b border-[var(--color-border)] px-4 py-3">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-primary-soft)] text-sm font-black text-[var(--color-primary)] ring-1 ring-[var(--color-primary-border)]">
@@ -35,9 +45,7 @@ export const ClientPanel: React.FC<Props> = ({
               <p className="text-sm font-semibold text-[var(--color-text)]">
                 {conversation.client?.name || 'Cliente sin nombre'}
               </p>
-              <p className="mt-0.5 flex items-center gap-1 text-[11px] text-online">
-                <span className="inline-block h-2 w-2 rounded-full bg-[var(--color-success)]/100" /> En línea
-              </p>
+              <p className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">WhatsApp</p>
             </div>
           </div>
           <button
@@ -49,11 +57,10 @@ export const ClientPanel: React.FC<Props> = ({
           </button>
         </div>
 
-        <div className="space-y-4 overflow-y-auto p-4">
-          <div className="grid grid-cols-3 gap-2">
-            <QuickAction icon={MessageCircle} label="WhatsApp" />
-            <QuickAction icon={Phone} label="Llamar" />
-            <QuickAction icon={UserPlus} label="Asignar" />
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+          <div className="grid grid-cols-2 gap-2">
+            <a href={conversation.client?.whatsapp_number ? `https://wa.me/${conversation.client.whatsapp_number.replace(/\D/g, '')}` : undefined} target="_blank" rel="noreferrer" aria-disabled={!conversation.client?.whatsapp_number} className="flex flex-col items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-2 py-3 text-xs font-semibold text-[var(--color-text)] hover:text-[var(--color-primary)] aria-disabled:pointer-events-none aria-disabled:opacity-40"><MessageCircle className="h-4 w-4" />WhatsApp</a>
+              <a href={conversation.client?.whatsapp_number ? `tel:+${conversation.client.whatsapp_number.replace(/\D/g, '')}` : undefined} aria-disabled={!conversation.client?.whatsapp_number} className="flex flex-col items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-2 py-3 text-xs font-semibold text-[var(--color-text)] hover:text-[var(--color-primary)] aria-disabled:pointer-events-none aria-disabled:opacity-40"><Phone className="h-4 w-4" />Llamar</a>
           </div>
 
           <div className="rounded-[var(--radius-button)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
@@ -102,13 +109,7 @@ export const ClientPanel: React.FC<Props> = ({
               <Ticket className="h-4 w-4 text-[var(--color-primary)]" />
               Tickets abiertos
             </h3>
-            <div className="rounded-lg bg-[var(--color-background)] p-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-semibold text-[var(--color-text)]">Fuga de agua</span>
-                <span className="rounded-full bg-danger-soft px-2 py-0.5 text-[11px] font-bold text-danger">P1</span>
-              </div>
-              <p className="mt-1 text-xs text-[var(--color-text-muted)]">Zona: {conversation.client?.zone || 'Sin zona'} · SLA 2 h</p>
-            </div>
+            <Link to="/admin/tickets" className="text-sm font-semibold text-[var(--color-primary)]">{conversation.open_tickets_count || 0} abiertos · Ver tickets</Link>
           </div>
 
           <div className="rounded-[var(--radius-button)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
@@ -136,15 +137,7 @@ export const ClientPanel: React.FC<Props> = ({
 
           <div className="rounded-[var(--radius-button)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
             <h3 className="mb-2 text-sm font-semibold text-[var(--color-text)]">Asignado a</h3>
-            <div className="flex items-center gap-3 rounded-lg bg-[var(--color-background)] px-3 py-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#dfeeff] text-[10px] font-semibold text-[var(--color-primary)]">
-                CR
-              </div>
-              <div>
-                <p className="text-sm font-medium text-[var(--color-text)]">Camila R.</p>
-                <p className="text-[11px] text-[var(--color-text-muted)]">Operador</p>
-              </div>
-            </div>
+            {enabled ? <select aria-label="Responsable de la conversación" value={conversation.assigned_to ?? ''} onChange={(event) => onAssign(event.target.value ? Number(event.target.value) : null)} className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-text)]"><option value="">Sin asignar</option>{team.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}</select> : <p className="text-sm text-[var(--color-text-muted)]">Sin asignar</p>}
           </div>
         </div>
       </div>
@@ -158,11 +151,4 @@ const Row: React.FC<{ icon: React.ElementType; label: string; value: string }> =
     <span>{label}</span>
     <span className="text-right font-medium text-[var(--color-text)]">{value}</span>
   </div>
-);
-
-const QuickAction: React.FC<{ icon: React.ElementType; label: string }> = ({ icon: Icon, label }) => (
-  <button className="flex flex-col items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-2 py-3 text-xs font-semibold text-[var(--color-text)] hover:text-[var(--color-primary)]">
-    <Icon className="h-4 w-4" />
-    <span>{label}</span>
-  </button>
 );

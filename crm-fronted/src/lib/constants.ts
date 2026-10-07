@@ -9,8 +9,11 @@ export interface Conversation {
   priority: string;
   channel?: string;
   ai_mode?: 'AI_AUTO' | 'AI_ASSIST' | 'HUMAN_TAKEOVER' | 'WAITING_USER' | 'WAITING_INTERNAL';
-  assigned_to?: string;
+  assigned_to?: number | string | null;
+  assigned_user?: { id: number; name: string } | null;
+  open_tickets_count?: number;
   unread_count?: number;
+  latest_inbound_id?: number | null;
   tags?: string[];
   updated_at?: string;
   metadata?: { group_name?: string; is_group?: boolean };
@@ -42,6 +45,9 @@ export interface Message {
   metadata?: {
     kind?: string;
     media_url?: string;
+    media_id?: string;
+    media_type?: 'image' | 'document';
+    filename?: string;
     payment_status?: string;
     path?: string;
   };

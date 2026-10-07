@@ -9,6 +9,7 @@ RUN apt-get update \
         && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+COPY docker/uploads.ini /usr/local/etc/php/conf.d/uploads.ini
 
 COPY backend-laravel/composer.json backend-laravel/composer.lock ./
 ENV COMPOSER_MAX_PARALLEL_HTTP=1 \

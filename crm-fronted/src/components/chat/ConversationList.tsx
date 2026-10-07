@@ -35,7 +35,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
   ];
 
   return (
-    <aside className="flex min-h-[calc(100vh-112px)] flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)]">
+    <aside className="flex min-h-0 flex-col overflow-hidden border-r border-[var(--color-border)] bg-[var(--color-surface)]">
       <div className="border-b border-[var(--color-border)] bg-[var(--color-surface)] p-4">
         <div className="mb-4 flex items-start justify-between">
           <div>
@@ -83,7 +83,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {conversations.length === 0 ? (
           <p className="p-6 text-center text-sm text-[var(--color-text-muted)]">No hay conversaciones.</p>
         ) : (
@@ -113,6 +113,9 @@ export const MessageList: React.FC<MessageListProps> = ({
   searchQuery = '',
 }) => {
   const panelRef = useRef<HTMLDivElement>(null);
+  const previousConversationRef = useRef<number | undefined>();
+  const previousLastMessageRef = useRef<number | undefined>();
+  const atBottomRef = useRef(true);
 
   const visible = searchQuery.trim()
     ? messages.filter((m) =>
@@ -123,20 +126,23 @@ export const MessageList: React.FC<MessageListProps> = ({
   useEffect(() => {
     const panel = panelRef.current;
     if (!panel) return;
-    panel.scrollTop = panel.scrollHeight;
-  }, [conversationId]);
-
-  useEffect(() => {
-    const panel = panelRef.current;
-    if (!panel) return;
-    const distance = panel.scrollHeight - panel.scrollTop - panel.clientHeight;
-    if (distance < 180) panel.scrollTop = panel.scrollHeight;
-  }, [messages]);
+    const lastId = visible[visible.length - 1]?.id;
+    const switched = previousConversationRef.current !== conversationId;
+    if (switched || (lastId !== previousLastMessageRef.current && atBottomRef.current)) {
+      panel.scrollTop = panel.scrollHeight;
+    }
+    previousConversationRef.current = conversationId;
+    previousLastMessageRef.current = lastId;
+  }, [conversationId, visible]);
 
   return (
     <div
       ref={panelRef}
-      className="flex-1 overflow-y-auto bg-[var(--color-chat)] p-4"
+      onScroll={(event) => {
+        const panel = event.currentTarget;
+        atBottomRef.current = panel.scrollHeight - panel.scrollTop - panel.clientHeight < 120;
+      }}
+      className="min-h-0 flex-1 overflow-y-auto bg-[var(--color-chat)] p-4"
       style={{
         backgroundImage:
           'radial-gradient(circle at 1px 1px, rgba(148,163,184,0.18) 1px, transparent 0)',

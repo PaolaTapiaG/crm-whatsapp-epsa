@@ -1,6 +1,6 @@
 // src/components/chat/MobileLayout.tsx
-import React from 'react';
-import { Bell, Menu, Paperclip, Search, Send } from 'lucide-react';
+import React, { useEffect, useRef } from 'react';
+import { Bell, Menu, Paperclip, Phone, Search, Send } from 'lucide-react';
 import type {
   ChatFilter,
   Conversation,
@@ -36,6 +36,8 @@ interface Props {
   onRequestClose: () => void;
   onChangeStatus: (status: 'transferred') => void;
   onInternalNote: (note: string) => void;
+  onAssign: (userId: number | null) => void;
+  team: Array<{ id: number; name: string }>;
 }
 
 const initials = (name?: string) =>
@@ -72,6 +74,8 @@ export const MobileLayout: React.FC<Props> = (props) => {
     onRequestClose,
     onChangeStatus,
     onInternalNote,
+    onAssign,
+    team,
   } = props;
 
   const visibleMessages = chatSearch.trim()
@@ -79,6 +83,22 @@ export const MobileLayout: React.FC<Props> = (props) => {
         (m.content || m.text).toLowerCase().includes(chatSearch.trim().toLowerCase())
       )
     : messages;
+
+  const messagesPanelRef = useRef<HTMLDivElement>(null);
+  const previousChatRef = useRef<number | undefined>();
+  const previousMessageRef = useRef<number | undefined>();
+  const atBottomRef = useRef(true);
+  useEffect(() => {
+    const panel = messagesPanelRef.current;
+    if (!panel || mobileView !== 'chat') return;
+    const lastId = visibleMessages[visibleMessages.length - 1]?.id;
+    const changedChat = previousChatRef.current !== active?.id;
+    if (changedChat || (previousMessageRef.current !== lastId && atBottomRef.current)) {
+      panel.scrollTop = panel.scrollHeight;
+    }
+    previousChatRef.current = active?.id;
+    previousMessageRef.current = lastId;
+  }, [active?.id, messages, mobileView, chatSearch]);
 
   return (
     <div className="h-[100svh] w-full overflow-hidden bg-[var(--color-background)] text-[var(--color-text)] md:hidden">
@@ -161,7 +181,7 @@ export const MobileLayout: React.FC<Props> = (props) => {
 
       {/* ------------------------------- CHAT ------------------------------ */}
       {mobileView === 'chat' && active && (
-        <div className="flex h-full flex-col bg-[var(--color-chat)]">
+        <div className="flex h-full min-h-0 flex-col bg-[var(--color-chat)]">
           <header className="flex items-center gap-3 border-b border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-[calc(12px+env(safe-area-inset-top)/2)]">
             <button
               type="button"
@@ -183,7 +203,7 @@ export const MobileLayout: React.FC<Props> = (props) => {
                 <p className="truncate text-sm font-semibold text-[var(--color-text)]">
                   {active.client?.name || 'Cliente sin nombre'}
                 </p>
-                <p className="text-xs text-online">En atención</p>
+                <p className="text-xs text-[var(--color-text-muted)]">WhatsApp</p>
               </div>
             </button>
             <button
@@ -194,6 +214,8 @@ export const MobileLayout: React.FC<Props> = (props) => {
             >
               <Search className="h-5 w-5" />
             </button>
+            <a href={active.client?.whatsapp_number ? `tel:+${active.client.whatsapp_number.replace(/\D/g, '')}` : undefined} aria-label="Llamar por teléfono" aria-disabled={!active.client?.whatsapp_number} className="flex h-10 w-10 items-center justify-center rounded-lg text-[var(--color-primary)] aria-disabled:pointer-events-none aria-disabled:opacity-40"><Phone className="h-5 w-5" /></a>
+            <button type="button" onClick={onOpenMenu} aria-label="Abrir menú" className="flex h-10 w-10 items-center justify-center rounded-lg text-[var(--color-primary)]"><Menu className="h-5 w-5" /></button>
           </header>
 
           {searchOpen && (
@@ -209,7 +231,12 @@ export const MobileLayout: React.FC<Props> = (props) => {
           )}
 
           <div
-            className="flex-1 overflow-y-auto bg-[var(--color-chat)] px-3 py-4"
+            ref={messagesPanelRef}
+            onScroll={(event) => {
+              const panel = event.currentTarget;
+              atBottomRef.current = panel.scrollHeight - panel.scrollTop - panel.clientHeight < 120;
+            }}
+            className="min-h-0 flex-1 overflow-y-auto bg-[var(--color-chat)] px-3 py-4"
             style={{
               backgroundImage:
                 'radial-gradient(circle at 1px 1px, rgba(148,163,184,0.18) 1px, transparent 0)',
@@ -235,7 +262,7 @@ export const MobileLayout: React.FC<Props> = (props) => {
                 <input
                   className="hidden"
                   type="file"
-                  accept="image/*,.pdf,.doc,.docx"
+                  accept="image/jpeg,image/png,application/pdf,.doc,.docx"
                   onChange={(e) => {
                     const f = e.target.files?.[0];
                     if (f) onAttachment(f);
@@ -281,6 +308,7 @@ export const MobileLayout: React.FC<Props> = (props) => {
               Volver
             </button>
             <h2 className="text-sm font-semibold text-[var(--color-text)]">Información y acciones</h2>
+            <button type="button" onClick={onOpenMenu} aria-label="Abrir menú" className="ml-auto flex h-10 w-10 items-center justify-center rounded-lg text-[var(--color-primary)]"><Menu className="h-5 w-5" /></button>
           </header>
           <div className="flex-1 overflow-y-auto p-4">
             <p className="text-lg font-semibold text-[var(--color-text)]">
@@ -289,6 +317,8 @@ export const MobileLayout: React.FC<Props> = (props) => {
             <p className="mt-1 text-sm text-[var(--color-text-muted)]">
               {active.client?.whatsapp_number || 'Sin teléfono registrado'}
             </p>
+
+            {team.length > 0 && <label className="mt-5 block text-sm font-semibold text-[var(--color-text)]">Responsable<select value={active.assigned_to ?? ''} onChange={(event) => onAssign(event.target.value ? Number(event.target.value) : null)} className="mt-2 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-3 text-[var(--color-text)]"><option value="">Sin asignar</option>{team.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}</select></label>}
 
             <div className="mt-5 grid grid-cols-2 gap-3">
               <button

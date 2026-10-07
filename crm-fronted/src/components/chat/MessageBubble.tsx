@@ -1,11 +1,29 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import type { Message } from '../../lib/constants';
+import { api } from '../../services/api';
 
 interface Props {
   message: Message;
 }
 
 export const MessageBubble: React.FC<Props> = ({ message }) => {
+  const [mediaUrl, setMediaUrl] = useState('');
+  useEffect(() => {
+    const mediaId = message.metadata?.media_id;
+    if (!mediaId) {
+      setMediaUrl(message.metadata?.media_url || '');
+      return;
+    }
+    let active = true;
+    let objectUrl = '';
+    void api.getMedia(mediaId).then((blob) => {
+      if (!active) return;
+      objectUrl = URL.createObjectURL(blob);
+      setMediaUrl(objectUrl);
+    }).catch(() => setMediaUrl(''));
+    return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [message.metadata?.media_id, message.metadata?.media_url]);
+
   const isInternal = Boolean(message.internal);
   const outbound = !isInternal && ['human', 'bot'].includes(message.sender);
 
@@ -29,9 +47,15 @@ export const MessageBubble: React.FC<Props> = ({ message }) => {
         <div className={`mb-1 text-[10px] font-bold uppercase ${outbound ? 'text-white/80' : 'text-[var(--color-primary)]'}`}>
           {role}
         </div>
-        <p className="whitespace-pre-wrap text-sm leading-relaxed">
+        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
           {message.content || message.text}
         </p>
+        {mediaUrl && (message.metadata?.media_type === 'image' || message.metadata?.kind === 'payment_proof') && (
+          <a href={mediaUrl} target="_blank" rel="noreferrer" title="Abrir imagen"><img src={mediaUrl} alt={message.metadata?.filename || 'Imagen adjunta'} className="mt-2 max-h-72 max-w-full rounded-lg object-contain" /></a>
+        )}
+        {mediaUrl && message.metadata?.media_type === 'document' && (
+          <a href={mediaUrl} target="_blank" rel="noreferrer" className="mt-2 block text-sm font-semibold underline">Abrir {message.metadata?.filename || 'documento'}</a>
+        )}
         <div className={`mt-2 text-right text-[10px] ${outbound ? 'text-white/75' : 'text-[var(--color-text-muted)]'}`}>
           {new Date(message.created_at).toLocaleString('es-BO', {
             hour: '2-digit',

@@ -4,6 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import AdminSidebar from '../components/AdminSidebar';
 import { api } from '../services/api';
+import { prepareProfilePhoto } from '../lib/prepareProfilePhoto';
 
 interface Profile {
   name: string;
@@ -177,13 +178,18 @@ const ProfilePage: React.FC = () => {
       setSaveError('Se seleccionó la ubicación, pero no se pudo obtener su dirección.');
     }
   };
-  const uploadPhoto = (event: ChangeEvent<HTMLInputElement>) => {
+  const uploadPhoto = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => update('photo', String(reader.result));
-    setPhotoFile(file);
-    reader.readAsDataURL(file);
+    try {
+      const prepared = await prepareProfilePhoto(file);
+      setPhotoFile(prepared);
+      update('photo', URL.createObjectURL(prepared));
+      setSaveError('');
+    } catch (error: any) {
+      setSaveError(error.message || 'No se pudo preparar la foto.');
+    }
+    event.target.value = '';
   };
   const copyExactLocation = async () => {
     await navigator.clipboard.writeText(exactLocationUrl);

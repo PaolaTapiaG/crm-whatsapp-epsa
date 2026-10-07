@@ -2,6 +2,7 @@
 import axios from 'axios';
 import { ApiResponse, DashboardIaStatus, DashboardIntent, DashboardMessage, DashboardStats, HealthStatus } from '../types';
 import { API_BASE_URL } from '../config/api';
+import type { CrmUser } from '../types/auth';
 
 const configuredApiUrl = String(import.meta.env.VITE_LARAVEL_URL || '').trim().replace(/\/$/, '');
 const V1_URL = import.meta.env.PROD
@@ -10,6 +11,8 @@ const V1_URL = import.meta.env.PROD
     ? `${configuredApiUrl}/api/v1`
     : API_BASE_URL;
 axios.defaults.timeout = 30000;
+const storedToken = sessionStorage.getItem('water-crm-session');
+if (storedToken) axios.defaults.headers.common.Authorization = `Bearer ${storedToken}`;
 
 const wait = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -27,6 +30,52 @@ async function requestWithRetry<T>(request: () => Promise<T>, attempts = 3): Pro
 }
 
 export const api = {
+  async getAuthSession(): Promise<{ enabled: boolean; user: CrmUser | null }> {
+    const response = await axios.get(`${V1_URL}/auth/session`);
+    return response.data;
+  },
+
+  async login(email: string, password: string): Promise<CrmUser> {
+    const response = await axios.post(`${V1_URL}/auth/login`, { email, password });
+    const token = response.data.token as string;
+    sessionStorage.setItem('water-crm-session', token);
+    axios.defaults.headers.common.Authorization = `Bearer ${token}`;
+    return response.data.user as CrmUser;
+  },
+
+  async logout(): Promise<void> {
+    try {
+      await axios.post(`${V1_URL}/auth/logout`);
+    } finally {
+      sessionStorage.removeItem('water-crm-session');
+      delete axios.defaults.headers.common.Authorization;
+    }
+  },
+
+  async getUsers(): Promise<CrmUser[]> {
+    const response = await axios.get(`${V1_URL}/auth/users`);
+    return response.data.data;
+  },
+
+  async getTeam(): Promise<Array<{ id: number; name: string; role: string }>> {
+    const response = await axios.get(`${V1_URL}/auth/team`);
+    return response.data.data;
+  },
+
+  async assignConversation(conversationId: number, userId: number | null) {
+    const response = await axios.post(`${V1_URL}/operator/conversation/${conversationId}/assign`, { user_id: userId });
+    return response.data.data;
+  },
+
+  async createUser(input: { name: string; email: string; password: string; role: 'admin' | 'secretary' }): Promise<CrmUser> {
+    const response = await axios.post(`${V1_URL}/auth/users`, input);
+    return response.data.data;
+  },
+
+  async getAudit(): Promise<Array<{ id: number; action: string; created_at: string; user?: { name: string }; details?: { status?: number } }>> {
+    const response = await axios.get(`${V1_URL}/auth/audit`);
+    return response.data.data;
+  },
   async sendMessage(phoneNumber: string, message: string, sessionId?: string): Promise<ApiResponse> {
     try {
       const response = await axios.post(`${V1_URL}/whatsapp/webhook`, {
@@ -71,7 +120,7 @@ export const api = {
     if (profile.email) form.append('email', profile.email);
     if (profile.vertical) form.append('vertical', profile.vertical);
     if (photo) form.append('photo', photo);
-    const response = await axios.post(`${V1_URL}/whatsapp/business-profile`, form);
+    const response = await axios.post(`${V1_URL}/whatsapp/business-profile`, form, { timeout: 60000 });
     return response.data;
   },
 
@@ -171,6 +220,11 @@ export const api = {
   async sendAttachment(conversationId: number, to: string, file: File) {
     const form = new FormData(); form.append('to', to); form.append('file', file);
     const response = await axios.post(`${V1_URL}/operator/conversation/${conversationId}/attachment`, form);
+    return response.data;
+  },
+
+  async getMedia(mediaId: string): Promise<Blob> {
+    const response = await axios.get(`${V1_URL}/operator/media/${encodeURIComponent(mediaId)}`, { responseType: 'blob' });
     return response.data;
   },
 

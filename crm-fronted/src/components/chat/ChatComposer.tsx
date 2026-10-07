@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { FileText, Mic, Paperclip, Send, Smile } from 'lucide-react';
+import { FileText, Mic, Paperclip, Plus, Send } from 'lucide-react';
 
 interface Props {
   text: string;
@@ -29,17 +29,16 @@ export const ChatComposer: React.FC<Props> = ({
   return (
     <div className="border-t border-[var(--color-border)] bg-[var(--color-surface)] p-3">
       <div className="flex items-end gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] p-2">
-        <button className="mb-1 rounded-full p-2 text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-primary)]" title="Emoji">
-          <Smile className="h-4 w-4" />
-        </button>
-
         <button
           type="button"
-          onClick={onToggleAttachments}
+          onClick={() => fileInputRef.current?.click()}
           className="mb-1 rounded-full p-2 text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-primary)]"
-          title="Adjuntar"
+          title="Adjuntar foto o documento"
         >
           <Paperclip className="h-4 w-4" />
+        </button>
+        <button type="button" onClick={onToggleAttachments} title="Más opciones" className="mb-1 rounded-full p-2 text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-primary)]">
+          <Plus className="h-4 w-4" />
         </button>
 
         <button
@@ -54,7 +53,7 @@ export const ChatComposer: React.FC<Props> = ({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*,.pdf,.doc,.docx"
+          accept="image/jpeg,image/png,application/pdf,.doc,.docx"
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];

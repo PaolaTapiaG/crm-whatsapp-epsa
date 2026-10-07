@@ -15,6 +15,7 @@ class Conversation extends Model
         'status',
         'channel',
         'priority',
+        'assigned_to',
         'context',
         'metadata',
         'started_at',
@@ -32,6 +33,11 @@ class Conversation extends Model
     public function client()
     {
         return $this->belongsTo(Client::class);
+    }
+
+    public function assignedUser()
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
     }
 
     public function messages()

@@ -95,6 +95,7 @@ class ProcessMessageJob implements ShouldQueue
                 $metadata = $stored->metadata ?? [];
                 $metadata['kind'] = 'payment_proof';
                 $metadata['media_url'] = $mediaUrl;
+                $metadata['media_id'] = $this->payload['media_id'];
                 $proofText = $this->payload['caption'] ?? 'Comprobante recibido';
                 $stored->update(['metadata' => $metadata, 'text' => $proofText, 'content' => $proofText]);
             }

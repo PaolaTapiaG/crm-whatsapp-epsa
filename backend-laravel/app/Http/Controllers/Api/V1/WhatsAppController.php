@@ -382,6 +382,9 @@ class WhatsAppController extends Controller
     public function updateBusinessProfile(Request $request)
     {
         try {
+            if ($request->file('photo') && !$request->file('photo')->isValid()) {
+                return response()->json(['success' => false, 'error' => 'No se recibió la foto completa. Intenta con una imagen JPG o PNG menor a 5 MB.'], 422);
+            }
             $data = $request->validate([
                 'about' => 'nullable|string|max:139',
                 'address' => 'nullable|string|max:256',

@@ -17,7 +17,9 @@ export const useConversations = ({
   const [conversations, setConversations] = useState<Conversation[]>(fallbackConversations);
   const [active, setActive] = useState<Conversation | null>(fallbackConversations[0] ?? null);
   const loadingRef = useRef(false);
-  const latestActivityRef = useRef('');
+  const latestInboundRef = useRef<Map<number, number> | null>(null);
+  const onNewMessageRef = useRef(onNewMessage);
+  onNewMessageRef.current = onNewMessage;
 
   const load = useCallback(async () => {
     if (loadingRef.current) return;
@@ -26,30 +28,15 @@ export const useConversations = ({
     try {
       const next = await api.getOperatorConversations();
 
-      const inboundActivity =
-        next
-          .filter((c: Conversation) => c.last_message?.sender === 'user')
-          .map(
-            (c: Conversation) =>
-              `${c.last_message?.id || ''}:${c.last_message?.created_at || ''}`
-          )
-          .sort()
-          .pop() || '';
-
-      if (
-        latestActivityRef.current &&
-        inboundActivity &&
-        inboundActivity !== latestActivityRef.current
-      ) {
-        const newest = next.find(
-          (c: Conversation) =>
-            `${c.last_message?.id || ''}:${c.last_message?.created_at || ''}` ===
-            inboundActivity
-        );
-        if (newest && onNewMessage) onNewMessage(newest);
-      }
-
-      if (inboundActivity) latestActivityRef.current = inboundActivity;
+      const seen = new Map<number, number>();
+      next.forEach((conversation: Conversation) => {
+        const inboundId = Number(conversation.latest_inbound_id || 0);
+        seen.set(conversation.id, inboundId);
+        if (latestInboundRef.current && inboundId > (latestInboundRef.current.get(conversation.id) || 0)) {
+          onNewMessageRef.current?.(conversation);
+        }
+      });
+      latestInboundRef.current = seen;
 
       const ordered = [...next].sort(
         (a, b) => conversationActivityTime(b) - conversationActivityTime(a)
@@ -67,7 +54,7 @@ export const useConversations = ({
     } finally {
       loadingRef.current = false;
     }
-  }, [onNewMessage]);
+  }, []);
 
   useEffect(() => {
     load();

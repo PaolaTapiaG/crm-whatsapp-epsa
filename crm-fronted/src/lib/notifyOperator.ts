@@ -115,3 +115,8 @@ export const requestNotificationPermission = async (): Promise<NotificationPermi
   }
   return Notification.permission;
 };
+
+export const unlockOperatorAudio = (): void => {
+  const context = getAudioContext();
+  if (context?.state === 'suspended') void context.resume();
+};

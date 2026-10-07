@@ -10,6 +10,7 @@ use App\Models\Message;
 use App\Services\WhatsAppAPIService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Schema;
 
 class OperatorController extends Controller
 {
@@ -25,8 +26,11 @@ class OperatorController extends Controller
             ->groupBy('client_id');
 
         $conversations = Conversation::with(['client', 'lastMessage'])
+            ->withCount(['tickets as open_tickets_count' => fn ($query) => $query->whereIn('status', ['open', 'assigned', 'in_progress'])])
+            ->withMax(['messages as latest_inbound_id' => fn ($query) => $query->where('sender', 'user')], 'id')
             ->whereIn('id', $latestConversationIds)
             ->latest('updated_at')
+            ->when(Schema::hasColumn('conversations', 'assigned_to'), fn ($query) => $query->with('assignedUser:id,name'))
             ->get();
 
         return response()->json(['success' => true, 'data' => $conversations]);
@@ -51,6 +55,20 @@ class OperatorController extends Controller
         ]);
     }
 
+    public function assign(Request $request, string $conversationId)
+    {
+        if (!Schema::hasColumn('conversations', 'assigned_to')) {
+            return response()->json(['error' => 'La asignación se habilitará después de actualizar la base de datos.'], 503);
+        }
+        $data = $request->validate(['user_id' => 'nullable|exists:users,id']);
+        if (!empty($data['user_id']) && !\App\Models\User::whereKey($data['user_id'])->where('active', true)->exists()) {
+            return response()->json(['error' => 'El usuario no está activo.'], 422);
+        }
+        $conversation = Conversation::findOrFail($conversationId);
+        $conversation->update(['assigned_to' => $data['user_id'] ?? null]);
+        return response()->json(['success' => true, 'data' => $conversation->load('assignedUser:id,name')]);
+    }
+
     public function sendMessage(Request $request)
     {
         $data = $request->validate([
@@ -69,12 +87,16 @@ class OperatorController extends Controller
                 'emergency_action' => 'Usa WhatsApp Business App, llamada telefonica o atencion presencial para casos urgentes; pausa automatizaciones y envios masivos hasta el reinicio mensual.',
             ], 409);
         }
-        Message::create([
+        $messageData = [
             'conversation_id' => $data['conversation_id'],
             'sender' => 'human',
             'text' => $data['text'],
             'metadata' => ['channel' => 'whatsapp', 'delivery' => $result['data'] ?? null],
-        ]);
+        ];
+        if ($request->user() && Schema::hasColumn('messages', 'sender_id')) {
+            $messageData['sender_id'] = $request->user()->id;
+        }
+        Message::create($messageData);
 
         return response()->json(['success' => true, 'data' => $result]);
     }
@@ -90,7 +112,7 @@ class OperatorController extends Controller
             'conversation_id' => $conversationId,
             'sender' => 'human',
             'sender_type' => 'operator',
-            'sender_id' => $data['sender_id'] ?? $request->user()?->id,
+            'sender_id' => $request->user()?->id ?? $data['sender_id'] ?? null,
             'text' => $data['text'],
             'content' => $data['text'],
             'message_type' => 'text',
@@ -136,10 +158,25 @@ class OperatorController extends Controller
 
     public function sendAttachment(Request $request, string $conversationId)
     {
-        $data = $request->validate(['to' => 'required|string', 'file' => 'required|file|max:16384']);
+        $data = $request->validate(['to' => 'required|string', 'file' => 'required|file|mimes:jpg,jpeg,png,pdf,doc,docx|max:8192']);
         $result = $this->whatsApp->sendFile($data['to'], $data['file']);
-        Message::create(['conversation_id' => $conversationId, 'sender' => 'human', 'text' => 'Archivo enviado: ' . $data['file']->getClientOriginalName(), 'metadata' => ['kind' => 'attachment', 'filename' => $data['file']->getClientOriginalName(), 'delivery' => $result['data'] ?? null]]);
+        $messageData = ['conversation_id' => $conversationId, 'sender' => 'human', 'text' => 'Archivo enviado: ' . $data['file']->getClientOriginalName(), 'metadata' => ['kind' => 'attachment', 'filename' => $data['file']->getClientOriginalName(), 'media_id' => $result['media_id'] ?? null, 'media_type' => str_starts_with($data['file']->getMimeType() ?: '', 'image/') ? 'image' : 'document', 'delivery' => $result['data'] ?? null]];
+        if ($request->user() && Schema::hasColumn('messages', 'sender_id')) {
+            $messageData['sender_id'] = $request->user()->id;
+        }
+        Message::create($messageData);
         return response()->json(['success' => true, 'data' => $result]);
+    }
+
+    public function media(string $mediaId)
+    {
+        abort_unless(ctype_digit($mediaId), 404);
+        abort_unless(Message::where('metadata->media_id', $mediaId)->exists(), 404);
+        $media = $this->whatsApp->getMedia($mediaId);
+        return response($media['body'], 200)
+            ->header('Content-Type', $media['mime'])
+            ->header('Content-Disposition', 'inline')
+            ->header('Cache-Control', 'private, max-age=300');
     }
 
     public function sendContact(Request $request, string $conversationId)

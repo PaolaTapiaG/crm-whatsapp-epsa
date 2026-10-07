@@ -27,7 +27,7 @@ export const useMessages = (conversationId?: number, pollMs = 5000) => {
 
   useEffect(() => {
     if (!conversationId) return;
-    setMessages((current) => (current.length ? current : fallbackMessages[conversationId] ?? []));
+    setMessages(fallbackMessages[conversationId] ?? []);
     load(conversationId);
     const timer = window.setInterval(() => load(conversationId), pollMs);
     return () => window.clearInterval(timer);

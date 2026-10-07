@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   BarChart3,
@@ -9,7 +9,9 @@ import {
   ChevronRight,
   GitBranch,
   MessageCircle,
+  Menu,
   Moon,
+  LogOut,
   Settings,
   Sun,
   Ticket,
@@ -19,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import type { SidebarCounts } from '../lib/constants';
+import { useAuth } from '../context/AuthContext';
 
 export const SIDEBAR_WIDTH_EXPANDED = 248;
 export const SIDEBAR_WIDTH_COMPACT = 82;
@@ -68,24 +71,34 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   soundEnabled = true,
   onToggleSound,
   counts = { all: 0, pending: 0, attention: 0, active: 0, closed: 0 },
-  operator = { name: 'María García', role: 'Administradora', status: 'online' },
+  operator = { name: 'Equipo EPSA', role: 'Operación', status: 'online' },
 }) => {
   const { mode, isDark, toggle } = useTheme();
-  const compact = Boolean(collapsed && !mobileOpen);
+  const { enabled, user, logout } = useAuth();
+  const displayedOperator = enabled && user ? { name: user.name, role: user.role === 'admin' ? 'Administración' : 'Secretaría' } : operator;
+  const [localMobileOpen, setLocalMobileOpen] = useState(false);
+  const isMobileOpen = mobileOpen ?? localMobileOpen;
+  const closeMobile = onCloseMobile ?? (() => setLocalMobileOpen(false));
+  const compact = Boolean(collapsed && !isMobileOpen);
 
   return (
     <>
+      {mobileOpen === undefined && !isMobileOpen && (
+        <button type="button" onClick={() => setLocalMobileOpen(true)} aria-label="Abrir menú" className="fixed bottom-[calc(16px+env(safe-area-inset-bottom))] right-4 z-50 flex h-12 w-12 items-center justify-center rounded-lg border border-[var(--color-primary-border)] bg-[var(--color-primary)] text-white shadow-lg md:hidden">
+          <Menu className="h-5 w-5" />
+        </button>
+      )}
       <div
-        aria-hidden={!mobileOpen}
+        aria-hidden={!isMobileOpen}
         className={`fixed inset-0 z-30 bg-slate-950/40 backdrop-blur-sm transition md:hidden ${
-          mobileOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
+          isMobileOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
         }`}
-        onClick={onCloseMobile}
+        onClick={closeMobile}
       />
 
       <aside
         className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] shadow-[var(--shadow-md)] transition-all duration-200 ${
-          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+          isMobileOpen ? 'translate-x-0' : '-translate-x-full'
         } md:translate-x-0 ${compact ? 'md:w-[82px]' : 'md:w-[248px]'} w-[82vw] max-w-[292px]`}
       >
         <div className={`flex items-center gap-3 border-b border-[var(--color-border)] px-4 py-4 ${compact ? 'justify-center' : ''}`}>
@@ -108,11 +121,11 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
               {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
             </button>
           )}
-          {onCloseMobile && (
+          {isMobileOpen && (
             <button
               type="button"
               className="ml-auto flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-text-muted)] md:hidden"
-              onClick={onCloseMobile}
+              onClick={closeMobile}
               aria-label="Cerrar menú"
             >
               <X className="h-4 w-4" />
@@ -121,7 +134,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         </div>
 
         <nav className="flex-1 space-y-1.5 overflow-y-auto px-3 py-4">
-          {items.map((item) => {
+          {items.filter((item) => !enabled || user?.role === 'admin' || item.path !== '/admin/settings').map((item) => {
             const Icon = item.icon;
             return (
               <NavLink
@@ -129,7 +142,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                 to={item.path}
                 end={item.end}
                 title={item.label}
-                onClick={onCloseMobile}
+                onClick={closeMobile}
                 className={({ isActive }) =>
                   `relative flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition ${
                     isActive
@@ -161,16 +174,17 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           {!compact && (
             <div className="mb-3 flex items-center gap-3 rounded-lg bg-[var(--color-background)] p-2">
               <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-primary-soft)] text-sm font-bold text-[var(--color-primary)]">
-                {initials(operator.name)}
+                {initials(displayedOperator.name)}
                 <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[var(--color-background)] bg-[var(--color-primary)]" />
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-bold">{operator.name}</p>
-                <p className="text-xs text-[var(--color-text-muted)]">{operator.role}</p>
+                <p className="truncate text-sm font-bold">{displayedOperator.name}</p>
+                <p className="text-xs text-[var(--color-text-muted)]">{displayedOperator.role}</p>
               </div>
             </div>
           )}
           <div className="flex justify-center gap-2">
+            {enabled && user && <button type="button" title="Cerrar sesión" aria-label="Cerrar sesión" onClick={() => void logout()} className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-text-muted)] hover:text-[var(--color-primary)]"><LogOut className="h-4 w-4" /></button>}
             {onToggleSound && (
               <button
                 title={soundEnabled ? 'Silenciar notificaciones' : 'Activar sonido'}

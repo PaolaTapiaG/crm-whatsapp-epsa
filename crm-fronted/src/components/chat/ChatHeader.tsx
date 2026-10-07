@@ -1,17 +1,21 @@
 import React from 'react';
-import { Bot, CheckCircle2, MoreHorizontal, Phone, Search, Ticket, UserCheck } from 'lucide-react';
+import { CheckCircle2, Phone, Search, UserCheck } from 'lucide-react';
 import type { Conversation } from '../../lib/constants';
 
 interface Props {
   conversation: Conversation;
   onToggleClientPanel: () => void;
   onToggleSearch: () => void;
+  onRequestClose: () => void;
+  onAssignMe?: () => void;
 }
 
 export const ChatHeader: React.FC<Props> = ({
   conversation,
   onToggleClientPanel,
   onToggleSearch,
+  onRequestClose,
+  onAssignMe,
 }) => {
   const initials = (conversation.client?.name || 'C')
     .split(' ')
@@ -32,7 +36,7 @@ export const ChatHeader: React.FC<Props> = ({
           </h2>
           <div className="mt-1 flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
             <span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--color-success)]/100" />
-            <span>En línea</span>
+            <span>WhatsApp</span>
             <span className="hidden xl:inline">·</span>
             <span className="hidden whitespace-nowrap xl:inline">{conversation.client?.whatsapp_number || '+591 70000000'}</span>
             <span className="hidden whitespace-nowrap rounded-full bg-[var(--color-primary-soft)] px-2 py-0.5 font-semibold text-[var(--color-primary)] sm:inline">
@@ -42,15 +46,7 @@ export const ChatHeader: React.FC<Props> = ({
         </div>
       </button>
       <div className="flex items-center gap-2">
-        <ActionIcon title="Tomar conversación">
-          <UserCheck className="h-4 w-4" />
-        </ActionIcon>
-        <ActionIcon title="Crear ticket">
-          <Ticket className="h-4 w-4" />
-        </ActionIcon>
-        <ActionIcon title="IA asistida">
-          <Bot className="h-4 w-4" />
-        </ActionIcon>
+        {onAssignMe && <button type="button" onClick={onAssignMe} title="Tomar conversación" className="hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] p-2 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] lg:block"><UserCheck className="h-4 w-4" /></button>}
         <button
           onClick={onToggleSearch}
           title="Buscar en el chat"
@@ -58,25 +54,13 @@ export const ChatHeader: React.FC<Props> = ({
         >
           <Search className="h-4 w-4" />
         </button>
-        <button title="Llamar" className="rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] p-2 text-[var(--color-text-muted)] hover:text-[var(--color-primary)]">
+        <a href={conversation.client?.whatsapp_number ? `tel:+${conversation.client.whatsapp_number.replace(/\D/g, '')}` : undefined} title="Llamar por teléfono" aria-disabled={!conversation.client?.whatsapp_number} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] p-2 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] aria-disabled:pointer-events-none aria-disabled:opacity-40">
           <Phone className="h-4 w-4" />
-        </button>
-        <button title="Cerrar conversación" className="hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] p-2 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] sm:block">
+        </a>
+        <button type="button" onClick={onRequestClose} title="Solicitar cierre" className="hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] p-2 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] sm:block">
           <CheckCircle2 className="h-4 w-4" />
-        </button>
-        <button title="Más opciones" className="rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] p-2 text-[var(--color-text-muted)] hover:text-[var(--color-primary)]">
-          <MoreHorizontal className="h-4 w-4" />
         </button>
       </div>
     </div>
   );
 };
-
-const ActionIcon: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <button
-    title={title}
-    className="hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] p-2 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] lg:block"
-  >
-    {children}
-  </button>
-);

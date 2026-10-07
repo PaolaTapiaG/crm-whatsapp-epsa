@@ -2,6 +2,9 @@ import React, { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { Building2, Camera, Globe2, Mail, MapPin, RefreshCw, Save, Settings as SettingsIcon } from 'lucide-react';
 import AdminSidebar from '../components/AdminSidebar';
 import { api } from '../services/api';
+import { prepareProfilePhoto } from '../lib/prepareProfilePhoto';
+import { useAuth } from '../context/AuthContext';
+import TeamAccessSection from '../components/settings/TeamAccessSection';
 
 type Settings = {
   model: string;
@@ -61,6 +64,7 @@ const fieldClass =
 const sectionClass = 'rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm';
 
 const SettingsPage: React.FC = () => {
+  const { enabled: authEnabled } = useAuth();
   const [settings, setSettings] = useState<Settings>(settingsDefaults);
   const [profile, setProfile] = useState<WhatsAppProfile>(profileDefaults);
   const [profilePhoto, setProfilePhoto] = useState<File | undefined>();
@@ -127,13 +131,18 @@ const SettingsPage: React.FC = () => {
     }
   };
 
-  const uploadPhoto = (event: ChangeEvent<HTMLInputElement>) => {
+  const uploadPhoto = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    setProfilePhoto(file);
-    const reader = new FileReader();
-    reader.onload = () => updateProfile('photo', String(reader.result));
-    reader.readAsDataURL(file);
+    try {
+      const prepared = await prepareProfilePhoto(file);
+      setProfilePhoto(prepared);
+      updateProfile('photo', URL.createObjectURL(prepared));
+      setProfileError('');
+    } catch (error: any) {
+      setProfileError(error.message || 'No se pudo preparar la foto.');
+    }
+    event.target.value = '';
   };
 
   const saveWhatsAppProfile = async () => {
@@ -295,6 +304,8 @@ const SettingsPage: React.FC = () => {
             </div>
           </aside>
         </div>
+
+        {authEnabled && <TeamAccessSection />}
 
         <div className="mt-6 grid gap-6 md:grid-cols-2">
           <section className={sectionClass}>

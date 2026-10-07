@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Bell, ChevronDown, Menu, Plus, Search } from 'lucide-react';
+import { AlertTriangle, Bell, Menu, Plus, Search } from 'lucide-react';
 import AdminSidebar, {
   SIDEBAR_WIDTH_COMPACT,
   SIDEBAR_WIDTH_EXPANDED,
@@ -15,8 +15,9 @@ import { useMessages } from '../hooks/useMessages';
 import { useTheme } from '../hooks/useTheme';
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
 import { api } from '../services/api';
-import { notifyOperator, requestNotificationPermission } from '../lib/notifyOperator';
+import { notifyOperator, requestNotificationPermission, unlockOperatorAudio } from '../lib/notifyOperator';
 import { readStored, writeStored } from '../lib/storage';
+import { useAuth } from '../context/AuthContext';
 import {
   conversationActivityTime,
   initialInvoice,
@@ -39,6 +40,7 @@ const OperatorChatPage: React.FC = () => {
   /* Tema                                                                */
   /* ------------------------------------------------------------------ */
   useTheme();
+  const { enabled: authEnabled, user: signedInUser } = useAuth();
 
   /* ------------------------------------------------------------------ */
   /* Layout                                                              */
@@ -85,6 +87,7 @@ const OperatorChatPage: React.FC = () => {
   };
 
   const enableNotifications = async () => {
+    unlockOperatorAudio();
     setSoundEnabled(true);
     localStorage.setItem('water-crm-sound', 'on');
     const permission = await requestNotificationPermission();
@@ -99,6 +102,15 @@ const OperatorChatPage: React.FC = () => {
       setNotice('El navegador bloqueó las notificaciones. Revisa los permisos del sitio.');
     }
   };
+
+  useEffect(() => {
+    window.addEventListener('pointerdown', unlockOperatorAudio, { once: true });
+    window.addEventListener('keydown', unlockOperatorAudio, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlockOperatorAudio);
+      window.removeEventListener('keydown', unlockOperatorAudio);
+    };
+  }, []);
 
   /* ------------------------------------------------------------------ */
   /* Datos: conversaciones y mensajes                                    */
@@ -140,6 +152,11 @@ const OperatorChatPage: React.FC = () => {
   const [invoice, setInvoice] = useState(initialInvoice);
   const [notice, setNotice] = useState('');
   const [quota, setQuota] = useState<any>(null);
+  const [team, setTeam] = useState<Array<{ id: number; name: string }>>([]);
+
+  useEffect(() => {
+    if (authEnabled) void api.getTeam().then(setTeam).catch(() => setTeam([]));
+  }, [authEnabled]);
 
   const [location] = useState<CompanyLocation>(() =>
     readStored('water-crm-company-location', {
@@ -236,7 +253,16 @@ const OperatorChatPage: React.FC = () => {
 
   const sendAttachment = async (file: File) => {
     if (!active) return;
+    if (file.size > 8 * 1024 * 1024) {
+      setNotice('El archivo debe pesar menos de 8 MB.');
+      return;
+    }
+    if (!['image/jpeg', 'image/png', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(file.type)) {
+      setNotice('Selecciona una foto JPG/PNG o un documento PDF/Word.');
+      return;
+    }
     try {
+      setNotice('Enviando archivo...');
       await api.sendAttachment(active.id, active.client?.whatsapp_number || '', file);
       setNotice('Archivo enviado correctamente.');
       await reloadMessages();
@@ -316,6 +342,18 @@ const OperatorChatPage: React.FC = () => {
     }
   };
 
+  const assignConversation = async (userId: number | null) => {
+    if (!active) return;
+    try {
+      const updated = await api.assignConversation(active.id, userId);
+      setActive((current) => current ? { ...current, assigned_to: updated.assigned_to, assigned_user: updated.assigned_user } : current);
+      await reloadConversations();
+      setNotice(userId ? 'Responsable actualizado.' : 'Conversación sin asignar.');
+    } catch (error: any) {
+      setNotice(error?.response?.data?.error || 'No se pudo asignar la conversación.');
+    }
+  };
+
   const saveInternalNote = async (note: string) => {
     if (!active || !note.trim()) return;
     try {
@@ -346,7 +384,7 @@ const OperatorChatPage: React.FC = () => {
         soundEnabled={soundEnabled}
         onToggleSound={toggleSound}
         counts={counts}
-        operator={{ name: 'Camila R.', role: 'Operador', status: 'online' }}
+        operator={{ name: signedInUser?.name || 'Equipo EPSA', role: signedInUser?.role === 'admin' ? 'Administración' : signedInUser ? 'Secretaría' : 'Operación', status: 'online' }}
       />
 
       {isMobile ? (
@@ -374,14 +412,16 @@ const OperatorChatPage: React.FC = () => {
           onRequestClose={requestClose}
           onChangeStatus={changeStatus}
           onInternalNote={saveInternalNote}
+          onAssign={assignConversation}
+          team={team}
           onOpenMenu={() => setMobileSidebarOpen(true)}
         />
       ) : (
         <main
-          className="min-h-screen bg-[var(--color-background)] px-3 py-3 transition-all duration-200 md:px-4"
+          className="h-[100dvh] min-h-0 overflow-hidden bg-[var(--color-background)] px-3 py-3 transition-all duration-200 md:px-4"
           style={{ paddingLeft: desktopPadding }}
         >
-          <div className="mx-auto max-w-[1540px]">
+          <div className="mx-auto flex h-full max-w-[1540px] min-h-0 flex-col">
             <header className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 shadow-[var(--shadow-sm)]">
               <div className="flex items-center gap-3">
                 <button
@@ -415,14 +455,13 @@ const OperatorChatPage: React.FC = () => {
                   <Bell className="h-4 w-4" />
                   <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-danger" />
                 </button>
-                <button className="flex items-center gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-left">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-primary-soft)] text-xs font-black text-[var(--color-primary)]">MG</span>
+                <div className="flex items-center gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-left">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-primary-soft)] text-xs font-black text-[var(--color-primary)]">{(signedInUser?.name || 'EPSA').split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span>
                   <span className="hidden leading-tight md:block">
-                    <span className="block text-sm font-bold text-[var(--color-text)]">María García</span>
-                    <span className="block text-xs text-[var(--color-text-muted)]">Administradora</span>
+                    <span className="block text-sm font-bold text-[var(--color-text)]">{signedInUser?.name || 'Equipo EPSA'}</span>
+                    <span className="block text-xs text-[var(--color-text-muted)]">{authEnabled ? signedInUser?.role === 'admin' ? 'Administración' : 'Secretaría' : 'Operación'}</span>
                   </span>
-                  <ChevronDown className="h-4 w-4 text-[var(--color-text-muted)]" />
-                </button>
+                </div>
               </div>
             </header>
 
@@ -471,9 +510,9 @@ const OperatorChatPage: React.FC = () => {
               </div>
             )}
 
-            <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-md)]">
+            <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-md)]">
               <div
-                className={`grid min-h-[calc(100vh-112px)] ${
+                className={`grid h-full min-h-0 grid-rows-[minmax(0,1fr)] ${
                   showClientPanel
                     ? 'grid-cols-[minmax(0,380px)_minmax(0,1fr)_320px]'
                     : 'grid-cols-[minmax(0,380px)_minmax(0,1fr)]'
@@ -490,13 +529,15 @@ const OperatorChatPage: React.FC = () => {
                   counts={counts}
                 />
 
-                <section className="flex flex-col bg-[var(--color-chat)]">
+                <section className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-[var(--color-chat)]">
                   {active ? (
                     <>
                       <ChatHeader
                         conversation={active}
                         onToggleClientPanel={() => setShowClientPanel((current) => !current)}
                         onToggleSearch={() => setSearchOpen((current) => !current)}
+                        onRequestClose={requestClose}
+                        onAssignMe={signedInUser ? () => void assignConversation(signedInUser.id) : undefined}
                       />
 
                       {searchOpen && (
@@ -562,6 +603,7 @@ const OperatorChatPage: React.FC = () => {
                     conversation={active}
                     onClose={() => setShowClientPanel(false)}
                     onRequestClose={requestClose}
+                    onAssign={assignConversation}
                   />
                 )}
               </div>
