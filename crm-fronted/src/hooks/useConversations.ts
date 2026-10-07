@@ -7,12 +7,14 @@ interface UseConversationsOptions {
   pollMs?: number;
 }
 
+const fallbackConversations = import.meta.env.PROD ? [] : mockConversations;
+
 export const useConversations = ({
   onNewMessage,
   pollMs = 8000,
 }: UseConversationsOptions = {}) => {
-  const [conversations, setConversations] = useState<Conversation[]>(mockConversations);
-  const [active, setActive] = useState<Conversation | null>(mockConversations[0] ?? null);
+  const [conversations, setConversations] = useState<Conversation[]>(fallbackConversations);
+  const [active, setActive] = useState<Conversation | null>(fallbackConversations[0] ?? null);
   const loadingRef = useRef(false);
   const latestActivityRef = useRef('');
 
@@ -52,15 +54,15 @@ export const useConversations = ({
         (a, b) => conversationActivityTime(b) - conversationActivityTime(a)
       );
 
-      setConversations(ordered.length ? ordered : mockConversations);
+      setConversations(ordered.length ? ordered : fallbackConversations);
       setActive((current) => {
-        const source = ordered.length ? ordered : mockConversations;
+        const source = ordered.length ? ordered : fallbackConversations;
         if (!current) return source[0] ?? null;
-        return source.find((c) => c.id === current.id) ?? current;
+        return source.find((c) => c.id === current.id) ?? source[0] ?? null;
       });
     } catch {
-      setConversations((current) => (current.length ? current : mockConversations));
-      setActive((current) => current ?? mockConversations[0] ?? null);
+      setConversations((current) => (current.length ? current : fallbackConversations));
+      setActive((current) => current ?? fallbackConversations[0] ?? null);
     } finally {
       loadingRef.current = false;
     }

@@ -1,6 +1,6 @@
 // src/components/chat/MobileLayout.tsx
 import React from 'react';
-import { Bell, Paperclip, Search, Send } from 'lucide-react';
+import { Bell, Menu, Paperclip, Search, Send } from 'lucide-react';
 import type {
   ChatFilter,
   Conversation,
@@ -32,6 +32,7 @@ interface Props {
   searchOpen: boolean;
   setSearchOpen: (v: boolean) => void;
   onEnableNotifications: () => void;
+  onOpenMenu: () => void;
   onRequestClose: () => void;
   onChangeStatus: (status: 'transferred') => void;
   onInternalNote: (note: string) => void;
@@ -67,6 +68,7 @@ export const MobileLayout: React.FC<Props> = (props) => {
     searchOpen,
     setSearchOpen,
     onEnableNotifications,
+    onOpenMenu,
     onRequestClose,
     onChangeStatus,
     onInternalNote,
@@ -79,20 +81,30 @@ export const MobileLayout: React.FC<Props> = (props) => {
     : messages;
 
   return (
-    <div className="h-[100dvh] w-full overflow-hidden bg-[#edf3f8] pb-[calc(72px+env(safe-area-inset-bottom))] md:hidden">
+    <div className="h-[100svh] w-full overflow-hidden bg-[var(--color-background)] text-[var(--color-text)] md:hidden">
       {/* ---------------------------- CHAT LIST ---------------------------- */}
       {mobileView === 'chats' && (
         <div className="flex h-full flex-col bg-[var(--color-surface)]">
-          <header className="bg-[#edf5ff] px-4 pb-3 pt-4">
+          <header className="border-b border-[var(--color-border)] bg-[var(--color-surface)] px-4 pb-3 pt-[calc(16px+env(safe-area-inset-top))] shadow-[var(--shadow-sm)]">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-base font-black tracking-wide text-[var(--color-text)]">EPSA CRM</p>
-                <p className="text-xs text-[var(--color-text-muted)]">Atención al cliente</p>
+              <div className="flex min-w-0 items-center gap-3">
+                <button
+                  type="button"
+                  onClick={onOpenMenu}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-text)]"
+                  aria-label="Abrir menu"
+                >
+                  <Menu className="h-5 w-5" />
+                </button>
+                <div className="min-w-0">
+                  <p className="truncate text-base font-black tracking-wide text-[var(--color-text)]">EPSA CRM</p>
+                  <p className="truncate text-xs text-[var(--color-text-muted)]">Atencion al cliente</p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={onEnableNotifications}
-                className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-button)] bg-[var(--color-surface)] text-[var(--color-primary)] shadow-sm"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-primary)] shadow-sm"
                 aria-label="Activar notificaciones"
               >
                 <Bell className="h-5 w-5" />
@@ -104,7 +116,7 @@ export const MobileLayout: React.FC<Props> = (props) => {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Buscar conversaciones, clientes..."
-                className="w-full rounded-[var(--radius-button)] border border-primary-border bg-[var(--color-surface)] px-3 py-2.5 pl-9 text-sm outline-none focus:border-sky-400"
+                className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2.5 pl-9 text-sm text-[var(--color-text)] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-primary)]"
               />
             </div>
             <div className="mt-3 flex gap-2 overflow-x-auto">
@@ -119,7 +131,9 @@ export const MobileLayout: React.FC<Props> = (props) => {
                   key={value}
                   onClick={() => setFilter(value)}
                   className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${
-                    filter === value ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--color-surface)] text-[var(--color-text-muted)]'
+                    filter === value
+                      ? 'bg-[var(--color-primary)] text-white'
+                      : 'border border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-text-muted)]'
                   }`}
                 >
                   {label} {count}
@@ -147,8 +161,8 @@ export const MobileLayout: React.FC<Props> = (props) => {
 
       {/* ------------------------------- CHAT ------------------------------ */}
       {mobileView === 'chat' && active && (
-        <div className="flex h-full flex-col bg-[#f7fbff]">
-          <header className="flex items-center gap-3 border-b border-[#dfeaf5] bg-[var(--color-surface)] px-3 py-3">
+        <div className="flex h-full flex-col bg-[var(--color-chat)]">
+          <header className="flex items-center gap-3 border-b border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-[calc(12px+env(safe-area-inset-top)/2)]">
             <button
               type="button"
               onClick={() => setMobileView('chats')}
@@ -162,7 +176,7 @@ export const MobileLayout: React.FC<Props> = (props) => {
               onClick={() => setMobileView('tools')}
               className="flex min-w-0 flex-1 items-center gap-3 text-left"
             >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-bold text-[var(--color-primary)]">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary-soft)] text-xs font-bold text-[var(--color-primary)] ring-1 ring-[var(--color-primary-border)]">
                 {initials(active.client?.name)}
               </div>
               <div className="min-w-0">
@@ -194,7 +208,14 @@ export const MobileLayout: React.FC<Props> = (props) => {
             </div>
           )}
 
-          <div className="flex-1 overflow-y-auto bg-[#f5f9ff] px-3 py-4">
+          <div
+            className="flex-1 overflow-y-auto bg-[var(--color-chat)] px-3 py-4"
+            style={{
+              backgroundImage:
+                'radial-gradient(circle at 1px 1px, rgba(148,163,184,0.18) 1px, transparent 0)',
+              backgroundSize: '22px 22px',
+            }}
+          >
             {visibleMessages.map((message) => (
               <div key={message.id} className="mb-3">
                 <MessageBubble message={message} />
@@ -207,7 +228,7 @@ export const MobileLayout: React.FC<Props> = (props) => {
             )}
           </div>
 
-          <div className="border-t border-[#dfeaf5] bg-[var(--color-surface)] p-3">
+          <div className="border-t border-[var(--color-border)] bg-[var(--color-surface)] p-3 pb-[calc(12px+env(safe-area-inset-bottom))]">
             <div className="flex items-end gap-2">
               <label className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-[var(--color-primary)] hover:bg-[var(--color-primary-soft)]">
                 <Paperclip className="h-5 w-5" />
@@ -233,13 +254,13 @@ export const MobileLayout: React.FC<Props> = (props) => {
                 }}
                 rows={1}
                 placeholder="Escribe un mensaje"
-                className="max-h-28 min-h-11 flex-1 resize-none rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-3 text-sm outline-none focus:border-sky-500"
+                className="max-h-28 min-h-11 flex-1 resize-none rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-3 text-sm text-[var(--color-text)] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-primary)]"
               />
               <button
                 type="button"
                 onClick={onSend}
                 aria-label="Enviar mensaje"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#1f72f3] text-white"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)] text-white"
               >
                 <Send className="h-5 w-5" />
               </button>
@@ -292,7 +313,7 @@ export const MobileLayout: React.FC<Props> = (props) => {
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 placeholder="Escribe una nota para el equipo"
-                className="mt-2 min-h-28 w-full rounded-[var(--radius-button)] border border-[var(--color-border)] p-3 text-sm outline-none focus:border-sky-500"
+                className="mt-2 min-h-28 w-full rounded-[var(--radius-button)] border border-[var(--color-border)] bg-[var(--color-background)] p-3 text-sm text-[var(--color-text)] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-primary)]"
               />
               <button
                 onClick={() => {
@@ -300,7 +321,7 @@ export const MobileLayout: React.FC<Props> = (props) => {
                   onInternalNote(text);
                   setText('');
                 }}
-                className="mt-2 rounded-[var(--radius-button)] bg-[#1f72f3] px-4 py-2 text-sm font-semibold text-white"
+                className="mt-2 rounded-[var(--radius-button)] bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white"
               >
                 Guardar nota
               </button>

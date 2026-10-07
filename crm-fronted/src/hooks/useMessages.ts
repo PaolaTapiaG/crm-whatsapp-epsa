@@ -2,9 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../services/api';
 import { mockMessages, type Message } from '../lib/constants';
 
+const fallbackMessages = import.meta.env.PROD ? {} : mockMessages;
+
 export const useMessages = (conversationId?: number, pollMs = 5000) => {
   const [messages, setMessages] = useState<Message[]>(() =>
-    conversationId ? mockMessages[conversationId] ?? [] : []
+    conversationId ? fallbackMessages[conversationId] ?? [] : []
   );
   const loadingRef = useRef<number | null>(null);
 
@@ -14,9 +16,9 @@ export const useMessages = (conversationId?: number, pollMs = 5000) => {
     try {
       const result = await api.getOperatorMessages(String(id));
       const next = Array.isArray(result.data) ? result.data : [];
-      setMessages(next.length ? next : mockMessages[id] ?? []);
+      setMessages(next.length ? next : fallbackMessages[id] ?? []);
     } catch {
-      setMessages((current) => (current.length ? current : mockMessages[id] ?? []));
+      setMessages((current) => (current.length ? current : fallbackMessages[id] ?? []));
     } finally {
       loadingRef.current = null;
     }
@@ -24,7 +26,7 @@ export const useMessages = (conversationId?: number, pollMs = 5000) => {
 
   useEffect(() => {
     if (!conversationId) return;
-    setMessages((current) => (current.length ? current : mockMessages[conversationId] ?? []));
+    setMessages((current) => (current.length ? current : fallbackMessages[conversationId] ?? []));
     load(conversationId);
     const timer = window.setInterval(() => load(conversationId), pollMs);
     return () => window.clearInterval(timer);

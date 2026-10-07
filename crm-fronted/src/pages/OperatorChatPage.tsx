@@ -355,6 +355,7 @@ const OperatorChatPage: React.FC = () => {
           onRequestClose={requestClose}
           onChangeStatus={changeStatus}
           onInternalNote={saveInternalNote}
+          onOpenMenu={() => setMobileSidebarOpen(true)}
         />
       ) : (
         <main

@@ -1,6 +1,6 @@
 
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import ChatPage from './pages/ChatPage';
 import AdminPage from './pages/AdminPage';
@@ -41,7 +41,7 @@ const App: React.FC = () => {
     <ThemeProvider>
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
-          <Route path="/" element={<OperatorChatPage />} />
+          <Route path="/" element={<Navigate to="/admin/operator" replace />} />
           <Route path="/chat-preview" element={<ChatPage />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/admin/conversations" element={<ConversationsPage />} />
