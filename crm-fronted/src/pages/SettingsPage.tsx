@@ -75,7 +75,7 @@ const SettingsPage: React.FC = () => {
   const [profileError, setProfileError] = useState('');
 
   const initials = useMemo(() => {
-    return profile.name
+    return (profile.name || '')
       .split(' ')
       .filter(Boolean)
       .map((part) => part[0])

@@ -2,51 +2,31 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Download, Eye, Filter, Import, MoreHorizontal, Plus, Search, Users } from 'lucide-react';
 import { api } from '../services/api';
 import AdminSidebar from '../components/AdminSidebar';
-import { mockConversations } from '../lib/constants';
+import { initials } from '../lib/format';
 
 type Resource = 'clients' | 'conversations' | 'tickets';
 
-const sampleClients = mockConversations.map((conversation, index) => ({
-  id: conversation.client_id || conversation.id,
-  name: conversation.client?.name,
-  whatsapp_number: conversation.client?.whatsapp_number,
-  company: conversation.client?.segment || ['Cliente', 'Prospecto', 'Soporte'][index % 3],
-  status: index === 3 ? 'Sin respuesta' : index === 2 ? 'Pendiente' : 'Activo',
-  responsible: conversation.assigned_to || 'María',
-  tag: conversation.tags?.[0] || conversation.client?.segment || 'Cliente',
-  last_interaction_at: conversation.last_message?.created_at,
-  last_message: conversation.last_message?.text,
-}));
-
-const sampleTickets = [
-  { id: 701, subject: 'Fuga en vía pública', category: 'Fuga', priority: 'P1', status: 'NUEVO', created_at: new Date().toISOString() },
-  { id: 702, subject: 'Pago no reflejado', category: 'Facturación', priority: 'P4', status: 'ASIGNADO', created_at: new Date(Date.now() - 3600000).toISOString() },
-  { id: 703, subject: 'Baja presión zona norte', category: 'Técnico', priority: 'P3', status: 'EN_ATENCION', created_at: new Date(Date.now() - 7200000).toISOString() },
-];
-
-const fallbackFor = (resource: Resource) => {
-  if (resource === 'clients') return sampleClients;
-  if (resource === 'tickets') return sampleTickets;
-  return mockConversations;
-};
-
 const AdminResourcePages: React.FC<{ resource: Resource }> = ({ resource }) => {
-  const [data, setData] = useState<any[]>(() => fallbackFor(resource));
+  const [data, setData] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     let mounted = true;
-    setData(fallbackFor(resource));
+    setData([]);
+    setLoadError(false);
     setLoading(true);
     api
       .getAdminResource(resource, { per_page: 50 })
       .then((result) => {
-        const next = Array.isArray(result) ? result : result?.data || [];
-        if (mounted) setData(next.length ? next : fallbackFor(resource));
+        const next = Array.isArray(result) ? result : result?.data;
+        if (mounted) setData(Array.isArray(next) ? next : []);
       })
-      .catch(() => mounted && setData(fallbackFor(resource)))
+      .catch(() => {
+        if (mounted) setLoadError(true);
+      })
       .finally(() => mounted && setLoading(false));
     return () => {
       mounted = false;
@@ -64,11 +44,12 @@ const AdminResourcePages: React.FC<{ resource: Resource }> = ({ resource }) => {
     [data, filter, search]
   );
 
+  const currentMonth = new Date().toISOString().slice(0, 7);
   const stats = [
-    ['Total contactos', resource === 'clients' ? data.length : mockConversations.length, '12%'],
-    ['Nuevos este mes', 24, '8%'],
-    ['Activos', data.filter((item) => String(item.status || '').toLowerCase().includes('activo')).length || 186, '14%'],
-    ['Sin respuesta', data.filter((item) => String(item.status || '').toLowerCase().includes('respuesta')).length || 18, '5%'],
+    ['Contactos cargados', data.length],
+    ['Nuevos este mes', data.filter((item) => typeof item.created_at === 'string' && item.created_at.slice(0, 7) === currentMonth).length],
+    ['Activos', data.filter((item) => ['active', 'activo'].includes(String(item.status || '').toLowerCase())).length],
+    ['Sin respuesta', data.filter((item) => ['unresponsive', 'sin respuesta'].includes(String(item.status || '').toLowerCase())).length],
   ] as const;
 
   return (
@@ -101,7 +82,7 @@ const AdminResourcePages: React.FC<{ resource: Resource }> = ({ resource }) => {
 
           {resource === 'clients' && (
             <section className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {stats.map(([label, value, delta], index) => (
+              {stats.map(([label, value], index) => (
                 <article key={label} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-[var(--shadow-sm)]">
                   <div className="flex items-center gap-3">
                     <span className={`flex h-10 w-10 items-center justify-center rounded-full ${index === 3 ? 'bg-pending-soft text-pending' : 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]'}`}>
@@ -112,7 +93,6 @@ const AdminResourcePages: React.FC<{ resource: Resource }> = ({ resource }) => {
                       <p className="mt-1 text-2xl font-black">{value}</p>
                     </div>
                   </div>
-                  <p className={`mt-3 text-xs font-bold ${index === 3 ? 'text-danger' : 'text-[var(--color-primary)]'}`}>↑ {delta}</p>
                 </article>
               ))}
             </section>
@@ -155,13 +135,18 @@ const AdminResourcePages: React.FC<{ resource: Resource }> = ({ resource }) => {
 
           {loading && (
             <div className="mb-3 rounded-lg border border-[var(--color-primary-border)] bg-[var(--color-primary-soft)] px-4 py-3 text-sm text-[var(--color-text)]">
-              Mostrando datos de prueba mientras se sincroniza con el backend.
+              Cargando datos del CRM...
+            </div>
+          )}
+          {loadError && (
+            <div role="alert" className="mb-3 rounded-lg border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">
+              No se pudieron cargar los registros. Comprueba la conexión e inténtalo de nuevo.
             </div>
           )}
 
           <div className="overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-sm)]">
             {filtered.length === 0 ? (
-              <div className="p-10 text-center text-sm text-[var(--color-text-muted)]">No hay registros para mostrar.</div>
+              <div className="p-10 text-center text-sm text-[var(--color-text-muted)]">{loading ? 'Cargando registros...' : loadError ? 'Registros no disponibles.' : 'No hay registros para mostrar.'}</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[900px] text-left text-sm">
@@ -230,7 +215,7 @@ const ConversationRow: React.FC<{ item: any }> = ({ item }) => (
     <td className="px-5 py-4"><Status value={item.status} /></td>
     <td className="px-5 py-4"><Badge value={item.priority || 'normal'} /></td>
     <td className="px-5 py-4 text-[var(--color-text-muted)]">{item.ai_mode || 'AI_ASSIST'}</td>
-    <td className="px-5 py-4">{item.assigned_to || 'María'}</td>
+    <td className="px-5 py-4">{item.assigned_user?.name || 'Sin asignar'}</td>
     <td className="px-5 py-4"><RowActions /></td>
   </>
 );
@@ -247,9 +232,9 @@ const TicketRow: React.FC<{ item: any }> = ({ item }) => (
   </>
 );
 
-const Avatar: React.FC<{ name?: string }> = ({ name = 'C' }) => (
+const Avatar: React.FC<{ name?: string | null }> = ({ name }) => (
   <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-primary-soft)] text-xs font-black text-[var(--color-primary)] ring-1 ring-[var(--color-primary-border)]">
-    {name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
+    {initials(name)}
   </span>
 );
 

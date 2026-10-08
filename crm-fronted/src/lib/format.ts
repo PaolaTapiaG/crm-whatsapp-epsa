@@ -1,4 +1,4 @@
-export const initials = (name?: string): string =>
+export const initials = (name?: string | null): string =>
   (name || 'C')
     .split(' ')
     .filter(Boolean)

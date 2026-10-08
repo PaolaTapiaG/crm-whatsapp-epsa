@@ -56,7 +56,7 @@ const items = [
 ];
 
 const initials = (name: string) =>
-  name
+  (name || 'EP')
     .split(' ')
     .map((part) => part[0])
     .join('')
