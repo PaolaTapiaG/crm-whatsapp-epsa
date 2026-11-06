@@ -44,7 +44,7 @@ class TicketController extends Controller
             'meter_id' => 'nullable|exists:meters,id', 'zone_id' => 'nullable|exists:zones,id',
             'subject' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'category' => 'required|in:rotura_caneria,fuga_casa,falta_agua,facturacion,medidor,servicio,queja,consulta,otro',
+            'category' => 'required|in:rotura_caneria,fuga_casa,falta_agua,facturacion,medidor,servicio,queja,reclamo,consulta,otro',
             'priority' => 'required|in:low,normal,high,urgent',
             'assigned_to' => 'nullable|exists:users,id',
             'created_by' => 'nullable|exists:users,id',
@@ -82,7 +82,7 @@ class TicketController extends Controller
         $ticket = Ticket::findOrFail($id);
         $ticket->update($request->validate([
             'subject' => 'sometimes|string|max:255', 'description' => 'nullable|string',
-            'category' => 'sometimes|in:rotura_caneria,fuga_casa,falta_agua,facturacion,medidor,servicio,queja,consulta,otro', 'priority' => 'sometimes|in:low,normal,high,urgent',
+            'category' => 'sometimes|in:rotura_caneria,fuga_casa,falta_agua,facturacion,medidor,servicio,queja,reclamo,consulta,otro', 'priority' => 'sometimes|in:low,normal,high,urgent',
             'assigned_to' => 'nullable|exists:users,id',
             'metadata' => 'nullable|array',
         ]));

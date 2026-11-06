@@ -20,15 +20,16 @@ class OperatorController extends Controller
 
     public function pending()
     {
-        $latestConversationIds = Conversation::query()
+        $latestWhatsAppIds = Conversation::query()
             ->selectRaw('MAX(id) as id')
-            ->whereIn('status', ['active', 'transferred', 'finished', 'closed'])
+            ->where('channel', 'whatsapp')
+            ->whereIn('status', ['active', 'pending', 'transferred', 'finished', 'closed'])
             ->groupBy('client_id');
 
         $conversations = Conversation::with(['client', 'lastMessage'])
             ->withCount(['tickets as open_tickets_count' => fn ($query) => $query->whereIn('status', ['open', 'assigned', 'in_progress'])])
             ->withMax(['messages as latest_inbound_id' => fn ($query) => $query->where('sender', 'user')], 'id')
-            ->whereIn('id', $latestConversationIds)
+            ->where(fn ($query) => $query->whereIn('id', $latestWhatsAppIds)->orWhere('channel', 'office'))
             ->latest('updated_at')
             ->when(Schema::hasColumn('conversations', 'assigned_to'), fn ($query) => $query->with('assignedUser:id,name'))
             ->get();
@@ -39,7 +40,9 @@ class OperatorController extends Controller
     public function messages(string $conversationId)
     {
         $conversation = Conversation::with('client')->findOrFail($conversationId);
-        $conversationIds = Conversation::where('client_id', $conversation->client_id)->pluck('id');
+        $conversationIds = $conversation->channel === 'whatsapp'
+            ? Conversation::where('client_id', $conversation->client_id)->where('channel', 'whatsapp')->pluck('id')
+            : collect([$conversation->id]);
 
         $messages = Message::whereIn('conversation_id', $conversationIds)
             ->latest('created_at')
@@ -76,6 +79,8 @@ class OperatorController extends Controller
             'text' => 'required|string|max:4096',
             'conversation_id' => 'required|exists:conversations,id',
         ]);
+
+        $this->ensureWhatsAppChannel($data['conversation_id']);
 
         try {
             $result = $this->whatsApp->sendTextMessage($data['to'], $data['text']);
@@ -126,6 +131,7 @@ class OperatorController extends Controller
 
     public function sendQr(Request $request, string $conversationId)
     {
+        $this->ensureWhatsAppChannel($conversationId);
         $data = $request->validate(['to' => 'required|string', 'qr' => 'required|file|image|max:5120']);
         $storedPath = $request->file('qr')->store('payment-qr', 'public');
         $result = $this->whatsApp->sendImage($data['to'], $data['qr']);
@@ -145,6 +151,7 @@ class OperatorController extends Controller
 
     public function sendVoice(Request $request, string $conversationId)
     {
+        $this->ensureWhatsAppChannel($conversationId);
         $data = $request->validate(['to' => 'required|string', 'audio' => 'required|file|mimes:ogg,oga,mp3,wav,webm,mp4,m4a|max:10240']);
         $result = $this->whatsApp->sendAudio($data['to'], $data['audio']);
         Message::create([
@@ -158,6 +165,7 @@ class OperatorController extends Controller
 
     public function sendAttachment(Request $request, string $conversationId)
     {
+        $this->ensureWhatsAppChannel($conversationId);
         $data = $request->validate(['to' => 'required|string', 'file' => 'required|file|mimes:jpg,jpeg,png,pdf,doc,docx|max:8192']);
         $result = $this->whatsApp->sendFile($data['to'], $data['file']);
         $messageData = ['conversation_id' => $conversationId, 'sender' => 'human', 'text' => 'Archivo enviado: ' . $data['file']->getClientOriginalName(), 'metadata' => ['kind' => 'attachment', 'filename' => $data['file']->getClientOriginalName(), 'media_id' => $result['media_id'] ?? null, 'media_type' => str_starts_with($data['file']->getMimeType() ?: '', 'image/') ? 'image' : 'document', 'delivery' => $result['data'] ?? null]];
@@ -181,6 +189,7 @@ class OperatorController extends Controller
 
     public function sendContact(Request $request, string $conversationId)
     {
+        $this->ensureWhatsAppChannel($conversationId);
         $data = $request->validate(['to' => 'required|string', 'contact_name' => 'required|string|max:120', 'contact_phone' => 'required|string|max:30']);
         $result = $this->whatsApp->sendContact($data['to'], $data['contact_name'], $data['contact_phone']);
         Message::create(['conversation_id' => $conversationId, 'sender' => 'human', 'text' => 'Contacto enviado: ' . $data['contact_name'], 'metadata' => ['kind' => 'contact', 'delivery' => $result['data'] ?? null]]);
@@ -202,7 +211,7 @@ class OperatorController extends Controller
         $message->update(['metadata' => $metadata]);
 
         $clientNumber = $message->conversation?->client?->whatsapp_number;
-        if ($clientNumber) {
+        if ($clientNumber && $message->conversation?->channel === 'whatsapp') {
             $reply = $data['status'] === 'approved'
                 ? 'Pago confirmado correctamente. En unos momentos el operador le enviara su factura en PDF.'
                 : 'El comprobante no pudo ser confirmado. Por favor envie una imagen clara o comuniquese con el operador.';
@@ -220,6 +229,7 @@ class OperatorController extends Controller
 
     public function sendInvoice(Request $request, string $conversationId)
     {
+        $this->ensureWhatsAppChannel($conversationId);
         $data = $request->validate([
             'to' => 'required|string',
             'bill_number' => 'required|string|max:80',
@@ -268,6 +278,7 @@ class OperatorController extends Controller
 
     public function sendLocation(Request $request, string $conversationId)
     {
+        $this->ensureWhatsAppChannel($conversationId);
         $data = $request->validate([
             'to' => 'required|string',
             'latitude' => 'required|numeric',
@@ -311,6 +322,7 @@ class OperatorController extends Controller
 
     public function transfer(string $conversationId)
     {
+        $this->ensureWhatsAppChannel($conversationId);
         $conversation = Conversation::with('client')->findOrFail($conversationId);
         $conversation->update(['status' => 'transferred', 'priority' => 'high']);
         ConversationStatusChanged::dispatch($conversation->fresh());
@@ -330,6 +342,7 @@ class OperatorController extends Controller
 
     public function requestClose(string $conversationId)
     {
+        $this->ensureWhatsAppChannel($conversationId);
         $conversation = Conversation::with('client')->findOrFail($conversationId);
         $context = $conversation->context ?? [];
 
@@ -355,6 +368,12 @@ class OperatorController extends Controller
         ConversationStatusChanged::dispatch($conversation->fresh());
 
         return response()->json(['success' => true, 'data' => $conversation->fresh()]);
+    }
+
+    private function ensureWhatsAppChannel(int|string $conversationId): void
+    {
+        $conversation = Conversation::findOrFail($conversationId);
+        abort_unless($conversation->channel === 'whatsapp', 422, 'Esta atención no utiliza WhatsApp. Registra una nota interna o continúa el ticket.');
     }
 
     private function invoicePdf(array $data): string

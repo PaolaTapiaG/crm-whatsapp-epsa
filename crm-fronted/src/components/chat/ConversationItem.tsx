@@ -61,7 +61,9 @@ export const ConversationItem: React.FC<Props> = ({ conversation, selected, onSe
           {conversation.last_message?.text || 'Sin mensajes recientes'}
         </p>
         <div className="mt-2 flex items-center gap-1.5">
-          {(conversation.tags || [conversation.priority]).slice(0, 2).map((tag) => (
+          <span className="rounded-md bg-[var(--color-primary-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-primary)]">{conversation.channel === 'office' ? (conversation.metadata?.source === 'paper' ? 'Formulario' : 'Oficina') : 'WhatsApp'}</span>
+          {conversation.channel === 'office' && conversation.metadata?.ticket_number && <span className="truncate text-[10px] text-[var(--color-text-muted)]">{conversation.metadata.ticket_number}</span>}
+          {(conversation.tags || [conversation.priority]).slice(0, 1).map((tag) => (
             <span key={tag} className="rounded-md bg-[var(--color-background)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-text-muted)]">
               {tag}
             </span>

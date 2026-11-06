@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\TicketController;
 use App\Http\Controllers\Api\V1\IntentController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\OperatorController;
+use App\Http\Controllers\Api\V1\OfficeIntakeController;
 use App\Http\Middleware\VerifyWhatsAppWebhook;
 use App\Http\Middleware\ApiAuthentication;
 use App\Http\Middleware\RequireCrmAdmin;
@@ -81,6 +82,7 @@ Route::prefix('v1')->group(function () {
     Route::get('dashboard/ia-status', [DashboardController::class, 'iaStatus']);
 
     Route::prefix('operator')->group(function () {
+        Route::post('/intake', [OfficeIntakeController::class, 'store']);
         Route::get('/pending', [OperatorController::class, 'pending']);
         Route::get('/conversation/{conversationId}/messages', [OperatorController::class, 'messages']);
         Route::post('/conversation/{conversationId}/assign', [OperatorController::class, 'assign']);

@@ -1,6 +1,7 @@
 export type ChatFilter = 'all' | 'pending' | 'attention' | 'active' | 'closed';
+export type ChannelFilter = 'all' | 'whatsapp' | 'office';
 export type MobileView = 'chats' | 'chat' | 'tools';
-export type ConversationStatus = 'active' | 'transferred' | 'finished' | 'closed';
+export type ConversationStatus = 'active' | 'pending' | 'transferred' | 'finished' | 'closed';
 
 export interface Conversation {
   id: number;
@@ -16,7 +17,7 @@ export interface Conversation {
   latest_inbound_id?: number | null;
   tags?: string[];
   updated_at?: string;
-  metadata?: { group_name?: string; is_group?: boolean };
+  metadata?: { group_name?: string; is_group?: boolean; source?: 'office' | 'paper'; paper_reference?: string; ticket_number?: string; received_at?: string };
   context?: {
     closure_state?: 'none' | 'awaiting_confirmation' | 'closed';
     close_reason?: string;
@@ -24,7 +25,8 @@ export interface Conversation {
   };
   client?: {
     name?: string;
-    whatsapp_number: string;
+    whatsapp_number?: string | null;
+    phone?: string | null;
     address?: string;
     email?: string;
     segment?: string;

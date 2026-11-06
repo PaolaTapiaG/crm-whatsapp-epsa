@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Filter, Search } from 'lucide-react';
-import type { ChatFilter, Conversation, Message, SidebarCounts } from '../../lib/constants';
+import type { ChannelFilter, ChatFilter, Conversation, Message, SidebarCounts } from '../../lib/constants';
 import { messageDay } from '../../lib/constants';
 import { ConversationItem } from './ConversationItem';
 import { MessageBubble } from './MessageBubble';
@@ -14,6 +14,8 @@ interface ConversationListProps {
   filter: ChatFilter;
   setFilter: (value: ChatFilter) => void;
   counts: SidebarCounts;
+  channelFilter: ChannelFilter;
+  setChannelFilter: (value: ChannelFilter) => void;
 }
 
 export const ConversationList: React.FC<ConversationListProps> = ({
@@ -25,6 +27,8 @@ export const ConversationList: React.FC<ConversationListProps> = ({
   filter,
   setFilter,
   counts,
+  channelFilter,
+  setChannelFilter,
 }) => {
   const filters: Array<[ChatFilter, string, number]> = [
     ['all', 'Todas', counts.all],
@@ -40,7 +44,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
         <div className="mb-4 flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-black tracking-tight text-[var(--color-text)]">Conversaciones</h1>
-            <p className="mt-1 text-sm text-[var(--color-text-muted)]">Bandeja única con IA y atención humana.</p>
+            <p className="mt-1 text-sm text-[var(--color-text-muted)]">WhatsApp y oficina en una misma bandeja.</p>
           </div>
           <span className="rounded-full bg-[var(--color-primary-soft)] px-3 py-1 text-xs font-bold text-[var(--color-primary)]">
             {counts.all}
@@ -55,6 +59,12 @@ export const ConversationList: React.FC<ConversationListProps> = ({
             placeholder="Buscar por nombre, teléfono o mensaje..."
             className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] py-2.5 pl-9 pr-3 text-sm text-[var(--color-text)] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-primary)]"
           />
+        </div>
+
+        <div className="mt-3 flex gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-background)] p-1" aria-label="Canal de atención">
+          {([['all', 'Todos'], ['whatsapp', 'WhatsApp'], ['office', 'Oficina']] as Array<[ChannelFilter, string]>).map(([value, label]) => (
+            <button key={value} type="button" onClick={() => setChannelFilter(value)} aria-pressed={channelFilter === value} className={`min-w-0 flex-1 rounded px-2 py-1.5 text-xs font-semibold ${channelFilter === value ? 'bg-[var(--color-surface)] text-[var(--color-primary)] shadow-sm' : 'text-[var(--color-text-muted)]'}`}>{label}</button>
+          ))}
         </div>
 
         <div className="mt-3 flex flex-wrap gap-2">

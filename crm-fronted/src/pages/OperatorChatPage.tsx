@@ -10,6 +10,7 @@ import { ChatComposer } from '../components/chat/ChatComposer';
 import { AttachmentsPopover } from '../components/chat/AttachmentsPopover';
 import { ClientPanel } from '../components/chat/ClientPanel';
 import { MobileLayout } from '../components/chat/MobileLayout';
+import { OfficeIntakeDialog } from '../components/chat/OfficeIntakeDialog';
 import { useConversations } from '../hooks/useConversations';
 import { useMessages } from '../hooks/useMessages';
 import { useTheme } from '../hooks/useTheme';
@@ -22,6 +23,7 @@ import {
   conversationActivityTime,
   initialInvoice,
   type ChatFilter,
+  type ChannelFilter,
   type Conversation,
   type MobileView,
 } from '../lib/constants';
@@ -143,6 +145,8 @@ const OperatorChatPage: React.FC = () => {
   /* ------------------------------------------------------------------ */
   const [mobileView, setMobileView] = useState<MobileView>('chats');
   const [filter, setFilter] = useState<ChatFilter>('all');
+  const [channelFilter, setChannelFilter] = useState<ChannelFilter>('all');
+  const [intakeOpen, setIntakeOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [text, setText] = useState('');
   const [chatSearch, setChatSearch] = useState('');
@@ -209,24 +213,25 @@ const OperatorChatPage: React.FC = () => {
       .filter((conversation) => {
         const haystack = `${conversation.client?.name || ''} ${
           conversation.client?.whatsapp_number || ''
-        } ${conversation.metadata?.group_name || ''}`.toLowerCase();
+        } ${conversation.metadata?.group_name || ''} ${conversation.metadata?.ticket_number || ''}`.toLowerCase();
         const matchesQuery = !normalized || haystack.includes(normalized);
         const matchesFilter =
           filter === 'all' ||
-          (filter === 'pending' && conversation.status === 'transferred') ||
+          (filter === 'pending' && ['pending', 'transferred'].includes(conversation.status)) ||
           (filter === 'attention' &&
             conversation.priority === 'high' &&
             conversation.status === 'active') ||
           (filter === 'active' && conversation.status === 'active') ||
           (filter === 'closed' &&
             ['closed', 'finished'].includes(conversation.status));
-        return matchesQuery && matchesFilter;
+        const matchesChannel = channelFilter === 'all' || conversation.channel === channelFilter;
+        return matchesQuery && matchesFilter && matchesChannel;
       })
       .sort(
         (left, right) =>
           conversationActivityTime(right) - conversationActivityTime(left)
       );
-  }, [conversations, filter, query]);
+  }, [conversations, filter, channelFilter, query]);
 
   /* ------------------------------------------------------------------ */
   /* Acciones                                                            */
@@ -238,6 +243,7 @@ const OperatorChatPage: React.FC = () => {
 
   const sendText = async (content = text) => {
     if (!active || !content.trim()) return;
+    if (active.channel === 'office') return;
     try {
       await api.sendOperatorMessage({
         to: active.client?.whatsapp_number || '',
@@ -253,6 +259,7 @@ const OperatorChatPage: React.FC = () => {
 
   const sendAttachment = async (file: File) => {
     if (!active) return;
+    if (active.channel === 'office') return;
     if (file.size > 8 * 1024 * 1024) {
       setNotice('El archivo debe pesar menos de 8 MB.');
       return;
@@ -273,6 +280,7 @@ const OperatorChatPage: React.FC = () => {
 
   const sendInvoice = async () => {
     if (!active || !invoice.bill_number) return;
+    if (active.channel === 'office') return;
     const calculatedAmount = [
       invoice.basic_rate,
       invoice.tier_11_15,
@@ -312,6 +320,7 @@ const OperatorChatPage: React.FC = () => {
 
   const requestClose = async () => {
     if (!active) return;
+    if (active.channel === 'office') return;
     try {
       await api.requestConversationClose(active.id);
       setActive((current) =>
@@ -403,6 +412,9 @@ const OperatorChatPage: React.FC = () => {
           setQuery={setQuery}
           filter={filter}
           setFilter={setFilter}
+          channelFilter={channelFilter}
+          setChannelFilter={setChannelFilter}
+          onOpenIntake={() => setIntakeOpen(true)}
           counts={counts}
           chatSearch={chatSearch}
           setChatSearch={setChatSearch}
@@ -415,6 +427,8 @@ const OperatorChatPage: React.FC = () => {
           onAssign={assignConversation}
           team={team}
           onOpenMenu={() => setMobileSidebarOpen(true)}
+          notice={notice}
+          onDismissNotice={() => setNotice('')}
         />
       ) : (
         <main
@@ -443,9 +457,9 @@ const OperatorChatPage: React.FC = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button className="hidden items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-bold text-white shadow-[0_12px_24px_rgba(22,199,102,0.25)] lg:flex">
+                <button type="button" onClick={() => setIntakeOpen(true)} className="flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-bold text-white shadow-[0_12px_24px_rgba(22,199,102,0.25)]">
                   <Plus className="h-4 w-4" />
-                  Nueva conversación
+                  Registrar atención
                 </button>
                 <button
                   title="Activar notificaciones"
@@ -526,6 +540,8 @@ const OperatorChatPage: React.FC = () => {
                   setQuery={setQuery}
                   filter={filter}
                   setFilter={setFilter}
+                  channelFilter={channelFilter}
+                  setChannelFilter={setChannelFilter}
                   counts={counts}
                 />
 
@@ -559,7 +575,15 @@ const OperatorChatPage: React.FC = () => {
                       />
 
                       <div className="relative">
-                        <ChatComposer
+                        {active.channel === 'office' ? (
+                          <div className="border-t border-[var(--color-border)] bg-[var(--color-surface)] p-3">
+                            <div className="flex gap-2">
+                              <input value={text} onChange={(event) => setText(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void saveInternalNote(text); }} placeholder="Nota interna sobre esta atención" className="min-w-0 flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-text)]" />
+                              <button type="button" disabled={!text.trim()} onClick={() => void saveInternalNote(text)} className="rounded-md bg-[var(--color-primary)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">Guardar nota</button>
+                            </div>
+                            <p className="mt-2 text-xs text-[var(--color-text-muted)]">Atención presencial: las notas quedan en el expediente; no se envían por WhatsApp.</p>
+                          </div>
+                        ) : <ChatComposer
                           text={text}
                           setText={setText}
                           onSend={() => sendText()}
@@ -575,9 +599,9 @@ const OperatorChatPage: React.FC = () => {
                           onStartRecording={startRecording}
                           onStopRecording={stopRecording}
                           recording={recording}
-                        />
+                        />}
 
-                        {attachmentsOpen && (
+                        {active.channel !== 'office' && attachmentsOpen && (
                           <AttachmentsPopover
                             action={attachmentAction}
                             setAction={setAttachmentAction}
@@ -611,6 +635,15 @@ const OperatorChatPage: React.FC = () => {
           </div>
         </main>
       )}
+      {intakeOpen && <OfficeIntakeDialog onClose={() => setIntakeOpen(false)} onCreated={async (conversation, ticketNumber) => {
+        setIntakeOpen(false);
+        setChannelFilter('all');
+        setFilter('all');
+        setActive(conversation);
+        setMobileView('chat');
+        setNotice(`Atención registrada. Folio ${ticketNumber}.`);
+        await reloadConversations();
+      }} />}
     </div>
   );
 };

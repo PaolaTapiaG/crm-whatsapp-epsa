@@ -25,6 +25,7 @@ class ClientController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%")
                   ->orWhere('whatsapp_number', 'LIKE', "%{$search}%")
+                  ->orWhere('phone', 'LIKE', "%{$search}%")
                   ->orWhere('email', 'LIKE', "%{$search}%");
             });
         }
@@ -50,8 +51,8 @@ class ClientController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'whatsapp_number' => 'required|string|unique:clients',
-            'name' => 'nullable|string|max:255',
+            'whatsapp_number' => 'nullable|string|unique:clients',
+            'name' => 'required_without:whatsapp_number|nullable|string|max:255',
             'email' => 'nullable|email|unique:clients',
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string',

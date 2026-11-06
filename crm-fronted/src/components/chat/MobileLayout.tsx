@@ -1,8 +1,9 @@
 // src/components/chat/MobileLayout.tsx
 import React, { useEffect, useRef } from 'react';
-import { Bell, Menu, Paperclip, Phone, Search, Send } from 'lucide-react';
+import { Bell, Menu, Paperclip, Phone, Plus, Search, Send } from 'lucide-react';
 import type {
   ChatFilter,
+  ChannelFilter,
   Conversation,
   Message,
   MobileView,
@@ -10,6 +11,7 @@ import type {
 } from '../../lib/constants';
 import { ConversationItem } from './ConversationItem';
 import { MessageBubble } from './MessageBubble';
+import { phoneHref } from '../../lib/format';
 
 interface Props {
   mobileView: MobileView;
@@ -27,6 +29,9 @@ interface Props {
   filter: ChatFilter;
   setFilter: (f: ChatFilter) => void;
   counts: SidebarCounts;
+  channelFilter: ChannelFilter;
+  setChannelFilter: (value: ChannelFilter) => void;
+  onOpenIntake: () => void;
   chatSearch: string;
   setChatSearch: (v: string) => void;
   searchOpen: boolean;
@@ -38,6 +43,8 @@ interface Props {
   onInternalNote: (note: string) => void;
   onAssign: (userId: number | null) => void;
   team: Array<{ id: number; name: string }>;
+  notice: string;
+  onDismissNotice: () => void;
 }
 
 const initials = (name?: string) =>
@@ -65,6 +72,9 @@ export const MobileLayout: React.FC<Props> = (props) => {
     filter,
     setFilter,
     counts,
+    channelFilter,
+    setChannelFilter,
+    onOpenIntake,
     chatSearch,
     setChatSearch,
     searchOpen,
@@ -76,6 +86,8 @@ export const MobileLayout: React.FC<Props> = (props) => {
     onInternalNote,
     onAssign,
     team,
+    notice,
+    onDismissNotice,
   } = props;
 
   const visibleMessages = chatSearch.trim()
@@ -102,6 +114,7 @@ export const MobileLayout: React.FC<Props> = (props) => {
 
   return (
     <div className="h-[100svh] w-full overflow-hidden bg-[var(--color-background)] text-[var(--color-text)] md:hidden">
+      {notice && <div role="status" className="absolute left-3 right-3 top-[calc(8px+env(safe-area-inset-top))] z-50 flex items-start justify-between gap-3 rounded-md border border-[var(--color-primary-border)] bg-[var(--color-surface)] p-3 text-sm shadow-lg"><span>{notice}</span><button type="button" onClick={onDismissNotice} className="text-[var(--color-primary)]">Cerrar</button></div>}
       {/* ---------------------------- CHAT LIST ---------------------------- */}
       {mobileView === 'chats' && (
         <div className="flex h-full flex-col bg-[var(--color-surface)]">
@@ -118,7 +131,7 @@ export const MobileLayout: React.FC<Props> = (props) => {
                 </button>
                 <div className="min-w-0">
                   <p className="truncate text-base font-black tracking-wide text-[var(--color-text)]">EPSA CRM</p>
-                  <p className="truncate text-xs text-[var(--color-text-muted)]">Atencion al cliente</p>
+                  <p className="truncate text-xs text-[var(--color-text-muted)]">Atención omnicanal</p>
                 </div>
               </div>
               <button
@@ -129,6 +142,10 @@ export const MobileLayout: React.FC<Props> = (props) => {
               >
                 <Bell className="h-5 w-5" />
               </button>
+            </div>
+            <button type="button" onClick={onOpenIntake} className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-[var(--color-primary)] px-3 py-2 text-sm font-semibold text-white"><Plus className="h-4 w-4" />Registrar atención</button>
+            <div className="mt-3 flex gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-background)] p-1" aria-label="Canal de atención">
+              {([['all', 'Todos'], ['whatsapp', 'WhatsApp'], ['office', 'Oficina']] as Array<[ChannelFilter, string]>).map(([value, label]) => <button key={value} type="button" aria-pressed={channelFilter === value} onClick={() => setChannelFilter(value)} className={`min-w-0 flex-1 rounded px-2 py-1.5 text-xs font-semibold ${channelFilter === value ? 'bg-[var(--color-surface)] text-[var(--color-primary)] shadow-sm' : 'text-[var(--color-text-muted)]'}`}>{label}</button>)}
             </div>
             <div className="relative mt-4">
               <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-[var(--color-text-muted)]" />
@@ -203,7 +220,7 @@ export const MobileLayout: React.FC<Props> = (props) => {
                 <p className="truncate text-sm font-semibold text-[var(--color-text)]">
                   {active.client?.name || 'Cliente sin nombre'}
                 </p>
-                <p className="text-xs text-[var(--color-text-muted)]">WhatsApp</p>
+                <p className="text-xs text-[var(--color-text-muted)]">{active.channel === 'office' ? (active.metadata?.source === 'paper' ? 'Formulario escrito' : 'Oficina') : 'WhatsApp'}</p>
               </div>
             </button>
             <button
@@ -214,7 +231,7 @@ export const MobileLayout: React.FC<Props> = (props) => {
             >
               <Search className="h-5 w-5" />
             </button>
-            <a href={active.client?.whatsapp_number ? `tel:+${active.client.whatsapp_number.replace(/\D/g, '')}` : undefined} aria-label="Llamar por teléfono" aria-disabled={!active.client?.whatsapp_number} className="flex h-10 w-10 items-center justify-center rounded-lg text-[var(--color-primary)] aria-disabled:pointer-events-none aria-disabled:opacity-40"><Phone className="h-5 w-5" /></a>
+            <a href={phoneHref(active.client?.phone || active.client?.whatsapp_number)} aria-label="Llamar por teléfono" aria-disabled={!active.client?.phone && !active.client?.whatsapp_number} className="flex h-10 w-10 items-center justify-center rounded-lg text-[var(--color-primary)] aria-disabled:pointer-events-none aria-disabled:opacity-40"><Phone className="h-5 w-5" /></a>
             <button type="button" onClick={onOpenMenu} aria-label="Abrir menú" className="flex h-10 w-10 items-center justify-center rounded-lg text-[var(--color-primary)]"><Menu className="h-5 w-5" /></button>
           </header>
 
@@ -257,6 +274,7 @@ export const MobileLayout: React.FC<Props> = (props) => {
 
           <div className="border-t border-[var(--color-border)] bg-[var(--color-surface)] p-3 pb-[calc(12px+env(safe-area-inset-bottom))]">
             <div className="flex items-end gap-2">
+              {active.channel !== 'office' && (
               <label className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-[var(--color-primary)] hover:bg-[var(--color-primary-soft)]">
                 <Paperclip className="h-5 w-5" />
                 <input
@@ -270,28 +288,30 @@ export const MobileLayout: React.FC<Props> = (props) => {
                   }}
                 />
               </label>
+              )}
               <textarea
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    onSend();
+                    if (active.channel === 'office') onInternalNote(text); else onSend();
                   }
                 }}
                 rows={1}
-                placeholder="Escribe un mensaje"
+                placeholder={active.channel === 'office' ? 'Nota interna del equipo' : 'Escribe un mensaje'}
                 className="max-h-28 min-h-11 flex-1 resize-none rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-3 text-sm text-[var(--color-text)] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-primary)]"
               />
               <button
                 type="button"
-                onClick={onSend}
-                aria-label="Enviar mensaje"
+                onClick={active.channel === 'office' ? () => onInternalNote(text) : onSend}
+                aria-label={active.channel === 'office' ? 'Guardar nota' : 'Enviar mensaje'}
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)] text-white"
               >
                 <Send className="h-5 w-5" />
               </button>
             </div>
+            {active.channel === 'office' && <p className="mt-2 text-xs text-[var(--color-text-muted)]">No se enviará por WhatsApp.</p>}
           </div>
         </div>
       )}
@@ -315,24 +335,24 @@ export const MobileLayout: React.FC<Props> = (props) => {
               {active.client?.name || 'Cliente sin nombre'}
             </p>
             <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-              {active.client?.whatsapp_number || 'Sin teléfono registrado'}
+              {active.client?.phone || active.client?.whatsapp_number || 'Sin teléfono registrado'}
             </p>
 
             {team.length > 0 && <label className="mt-5 block text-sm font-semibold text-[var(--color-text)]">Responsable<select value={active.assigned_to ?? ''} onChange={(event) => onAssign(event.target.value ? Number(event.target.value) : null)} className="mt-2 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-3 text-[var(--color-text)]"><option value="">Sin asignar</option>{team.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}</select></label>}
 
             <div className="mt-5 grid grid-cols-2 gap-3">
-              <button
+              {active.channel !== 'office' && <button
                 onClick={onRequestClose}
                 className="rounded-[var(--radius-button)] border border-primary-border bg-[var(--color-primary-soft)] p-3 text-sm font-semibold text-[var(--color-primary)]"
               >
                 Solicitar cierre
-              </button>
-              <button
+              </button>}
+              {active.channel !== 'office' && <button
                 onClick={() => onChangeStatus('transferred')}
                 className="rounded-[var(--radius-button)] border border-pending bg-[color:var(--color-warning)]/10 p-3 text-sm font-semibold text-[var(--color-warning)]"
               >
                 Transferir
-              </button>
+              </button>}
             </div>
 
             <div className="mt-5">

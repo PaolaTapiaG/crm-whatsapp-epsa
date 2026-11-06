@@ -17,3 +17,10 @@ export const timeHHMM = (value?: string): string => {
 
 export const truncate = (value: string, max = 28): string =>
   value.length > max ? value.slice(0, max) + '…' : value;
+
+export const phoneHref = (value?: string | null): string | undefined => {
+  const digits = (value || '').replace(/\D/g, '');
+  if (!digits) return undefined;
+  const international = (value || '').trim().startsWith('+') || digits.startsWith('591');
+  return `tel:${international ? '+' : ''}${digits}`;
+};

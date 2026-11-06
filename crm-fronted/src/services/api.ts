@@ -3,13 +3,9 @@ import axios from 'axios';
 import { ApiResponse, DashboardIaStatus, DashboardIntent, DashboardMessage, DashboardStats, HealthStatus } from '../types';
 import { API_BASE_URL } from '../config/api';
 import type { CrmUser } from '../types/auth';
+import type { Conversation } from '../lib/constants';
 
-const configuredApiUrl = String(import.meta.env.VITE_LARAVEL_URL || '').trim().replace(/\/$/, '');
-const V1_URL = import.meta.env.PROD
-  ? API_BASE_URL
-  : configuredApiUrl
-    ? `${configuredApiUrl}/api/v1`
-    : API_BASE_URL;
+const V1_URL = API_BASE_URL;
 axios.defaults.timeout = 30000;
 const storedToken = sessionStorage.getItem('water-crm-session');
 if (storedToken) axios.defaults.headers.common.Authorization = `Bearer ${storedToken}`;
@@ -30,6 +26,21 @@ async function requestWithRetry<T>(request: () => Promise<T>, attempts = 3): Pro
 }
 
 export const api = {
+  async createOfficeIntake(input: {
+    client_id?: number;
+    name?: string;
+    phone?: string;
+    source: 'office' | 'paper';
+    paper_reference?: string;
+    received_at?: string;
+    subject: string;
+    description: string;
+    category: string;
+    priority: 'low' | 'normal' | 'high' | 'urgent';
+  }): Promise<{ conversation: Conversation; ticket: { id: number; ticket_number: string } }> {
+    const response = await axios.post(`${V1_URL}/operator/intake`, input);
+    return response.data.data;
+  },
   async getAuthSession(): Promise<{ enabled: boolean; user: CrmUser | null }> {
     const response = await axios.get(`${V1_URL}/auth/session`);
     return response.data;

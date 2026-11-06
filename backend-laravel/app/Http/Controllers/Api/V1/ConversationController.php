@@ -41,7 +41,8 @@ class ConversationController extends Controller
             $search = $request->search;
             $query->whereHas('client', function ($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%")
-                  ->orWhere('whatsapp_number', 'LIKE', "%{$search}%");
+                  ->orWhere('whatsapp_number', 'LIKE', "%{$search}%")
+                  ->orWhere('phone', 'LIKE', "%{$search}%");
             });
         }
 

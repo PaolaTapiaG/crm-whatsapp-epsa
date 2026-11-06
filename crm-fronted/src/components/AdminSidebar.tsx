@@ -108,7 +108,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           {!compact && (
             <div className="min-w-0">
               <p className="text-[17px] font-black leading-tight text-[var(--color-text)]">EPSA CRM</p>
-              <p className="text-xs text-[var(--color-text-muted)]">CRM de WhatsApp</p>
+              <p className="text-xs text-[var(--color-text-muted)]">Atención omnicanal</p>
             </div>
           )}
           {onToggle && (

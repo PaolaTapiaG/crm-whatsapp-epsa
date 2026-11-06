@@ -63,7 +63,7 @@ export const useConversations = ({
   }, [load, pollMs]);
 
   const counts = useMemo(() => {
-    const pending = conversations.filter((c) => c.status === 'transferred').length;
+    const pending = conversations.filter((c) => ['pending', 'transferred'].includes(c.status)).length;
     const attention = conversations.filter(
       (c) => c.status === 'active' && c.priority === 'high'
     ).length;
