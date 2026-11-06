@@ -8,6 +8,7 @@ use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\Ticket;
 use App\Models\TicketHistory;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -42,6 +43,9 @@ class OfficeIntakeController extends Controller
         if (in_array($data['case_type'], ['reclamo', 'emergencia'], true) && empty($data['response_due_at'])) {
             throw \Illuminate\Validation\ValidationException::withMessages(['response_due_at' => 'Registra la fecha tentativa de respuesta del reclamo.']);
         }
+        if ($data['case_type'] === 'emergencia' && $data['category'] === 'consulta') {
+            throw \Illuminate\Validation\ValidationException::withMessages(['category' => 'Selecciona el tema del servicio que requiere atención de emergencia.']);
+        }
 
         $result = DB::transaction(function () use ($data, $request): array {
             $client = isset($data['client_id'])
@@ -54,6 +58,9 @@ class OfficeIntakeController extends Controller
                     'status' => 'active',
                 ]);
             $receivedAt = $data['received_at'] ?? now()->toIso8601String();
+            $attentionDueAt = $data['case_type'] === 'emergencia'
+                ? Carbon::parse($receivedAt)->addHours(24)->toIso8601String()
+                : null;
             if (in_array($data['source'], ['phone', 'sms'], true) && !($data['phone'] ?? $client->phone ?? $client->whatsapp_number)) {
                 throw \Illuminate\Validation\ValidationException::withMessages(['phone' => 'Registra el número de origen o selecciona un socio con teléfono.']);
             }
@@ -67,6 +74,7 @@ class OfficeIntakeController extends Controller
                 'address' => $data['address'] ?? $client->address,
                 'case_type' => $data['case_type'],
                 'response_due_at' => $data['response_due_at'] ?? null,
+                'attention_due_at' => $attentionDueAt,
                 'contact_method' => $data['contact_method'],
                 'registered_by' => $request->user()?->id,
             ];

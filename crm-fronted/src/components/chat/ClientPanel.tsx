@@ -74,6 +74,7 @@ export const ClientPanel: React.FC<Props> = ({
             {conversation.metadata?.service_code && <p className="mt-1 text-[var(--color-text-muted)]">Código de socio: {conversation.metadata.service_code}</p>}
             {conversation.metadata?.case_type && <p className="mt-1 text-[var(--color-text-muted)]">Clase: {conversation.metadata.case_type}</p>}
             {conversation.metadata?.response_due_at && <p className="mt-1 text-[var(--color-text-muted)]">Respuesta prevista: {new Date(conversation.metadata.response_due_at).toLocaleString('es-BO')}</p>}
+            {conversation.metadata?.attention_due_at && <p className="mt-1 font-medium text-[var(--color-warning)]">Atención de emergencia antes de: {new Date(conversation.metadata.attention_due_at).toLocaleString('es-BO')}</p>}
             {conversation.metadata?.contact_method && <p className="mt-1 text-[var(--color-text-muted)]">Respuesta por: {conversation.metadata.contact_method}</p>}
           </div>}
 

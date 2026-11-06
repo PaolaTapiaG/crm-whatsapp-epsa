@@ -167,4 +167,34 @@ class OfficeIntakeTest extends TestCase
         ])->assertCreated();
         $this->assertSame('emergencia', $response->json('data.ticket.metadata.case_type'));
     }
+
+    public function test_emergency_deadline_starts_at_original_receipt_not_digitization(): void
+    {
+        $token = $this->secretaryToken();
+        $receivedAt = now()->subHours(3)->startOfMinute();
+        $payload = [
+            'name' => 'Socia con reporte de fuga',
+            'source' => 'paper',
+            'paper_reference' => 'FORM-EM-23',
+            'received_at' => $receivedAt->toIso8601String(),
+            'case_type' => 'emergencia',
+            'contact_method' => 'office',
+            'subject' => 'Rotura de cañería',
+            'description' => 'Formulario recibido en ventanilla.',
+            'category' => 'consulta',
+            'priority' => 'normal',
+            'response_due_at' => now()->addHours(6)->toIso8601String(),
+        ];
+        $this->withToken($token)->postJson('/api/v1/operator/intake', $payload)
+            ->assertUnprocessable()->assertJsonValidationErrors('category');
+
+        $response = $this->withToken($token)->postJson('/api/v1/operator/intake', array_replace($payload, [
+            'category' => 'rotura_caneria',
+        ]))->assertCreated();
+        $this->assertSame('urgent', $response->json('data.ticket.priority'));
+        $this->assertSame(
+            $receivedAt->copy()->addHours(24)->timestamp,
+            \Carbon\Carbon::parse($response->json('data.ticket.metadata.attention_due_at'))->timestamp
+        );
+    }
 }

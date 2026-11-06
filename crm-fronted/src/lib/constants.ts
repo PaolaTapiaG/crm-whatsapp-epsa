@@ -17,7 +17,7 @@ export interface Conversation {
   latest_inbound_id?: number | null;
   tags?: string[];
   updated_at?: string;
-  metadata?: { group_name?: string; is_group?: boolean; source?: 'office' | 'paper' | 'phone' | 'sms'; paper_reference?: string; source_reference?: string; claim_number?: string; ticket_number?: string; received_at?: string; service_code?: string; address?: string; case_type?: string; response_due_at?: string; contact_method?: string };
+  metadata?: { group_name?: string; is_group?: boolean; source?: 'office' | 'paper' | 'phone' | 'sms'; paper_reference?: string; source_reference?: string; claim_number?: string; ticket_number?: string; received_at?: string; service_code?: string; address?: string; case_type?: string; response_due_at?: string; attention_due_at?: string; contact_method?: string };
   context?: {
     closure_state?: 'none' | 'awaiting_confirmation' | 'closed';
     close_reason?: string;

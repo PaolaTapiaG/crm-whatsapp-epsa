@@ -387,6 +387,7 @@ const OperatorChatPage: React.FC = () => {
   return (
     <div className="crm-workspace min-h-screen bg-[var(--color-background)] text-[var(--color-text)]">
       <AdminSidebar
+        onOpenIntake={() => setIntakeOpen(true)}
         collapsed={sidebarCollapsed}
         onToggle={toggleSidebar}
         mobileOpen={mobileSidebarOpen}

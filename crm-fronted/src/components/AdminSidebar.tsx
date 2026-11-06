@@ -12,6 +12,7 @@ import {
   Menu,
   Moon,
   LogOut,
+  ClipboardList,
   Settings,
   Sun,
   Ticket,
@@ -42,6 +43,7 @@ interface AdminSidebarProps {
   onToggleSound?: () => void;
   counts?: SidebarCounts;
   operator?: OperatorProfile;
+  onOpenIntake?: () => void;
 }
 
 const items = [
@@ -72,6 +74,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   onToggleSound,
   counts = { all: 0, pending: 0, attention: 0, active: 0, closed: 0 },
   operator = { name: 'Equipo EPSA', role: 'Operación', status: 'online' },
+  onOpenIntake,
 }) => {
   const { mode, isDark, toggle } = useTheme();
   const { enabled, user, logout } = useAuth();
@@ -134,6 +137,17 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         </div>
 
         <nav className="flex-1 space-y-1.5 overflow-y-auto px-3 py-4">
+          {onOpenIntake && (
+            <button
+              type="button"
+              title="Registrar atención"
+              onClick={() => { closeMobile(); onOpenIntake(); }}
+              className={`mb-3 flex w-full items-center gap-3 rounded-lg bg-[var(--color-primary)] px-3 py-3 text-left text-sm font-bold text-white hover:opacity-90 ${compact ? 'justify-center' : ''}`}
+            >
+              <ClipboardList className="h-[19px] w-[19px] shrink-0" />
+              {!compact && <span>Registrar atención</span>}
+            </button>
+          )}
           {items.filter((item) => !enabled || user?.role === 'admin' || item.path !== '/admin/settings').map((item) => {
             const Icon = item.icon;
             return (
