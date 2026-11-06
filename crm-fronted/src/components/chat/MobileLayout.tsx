@@ -11,7 +11,7 @@ import type {
 } from '../../lib/constants';
 import { ConversationItem } from './ConversationItem';
 import { MessageBubble } from './MessageBubble';
-import { phoneHref } from '../../lib/format';
+import { channelLabel, isManualConversation, phoneHref } from '../../lib/format';
 
 interface Props {
   mobileView: MobileView;
@@ -144,8 +144,8 @@ export const MobileLayout: React.FC<Props> = (props) => {
               </button>
             </div>
             <button type="button" onClick={onOpenIntake} className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-[var(--color-primary)] px-3 py-2 text-sm font-semibold text-white"><Plus className="h-4 w-4" />Registrar atención</button>
-            <div className="mt-3 flex gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-background)] p-1" aria-label="Canal de atención">
-              {([['all', 'Todos'], ['whatsapp', 'WhatsApp'], ['office', 'Oficina']] as Array<[ChannelFilter, string]>).map(([value, label]) => <button key={value} type="button" aria-pressed={channelFilter === value} onClick={() => setChannelFilter(value)} className={`min-w-0 flex-1 rounded px-2 py-1.5 text-xs font-semibold ${channelFilter === value ? 'bg-[var(--color-surface)] text-[var(--color-primary)] shadow-sm' : 'text-[var(--color-text-muted)]'}`}>{label}</button>)}
+            <div className="mt-3 flex gap-1 overflow-x-auto rounded-md border border-[var(--color-border)] bg-[var(--color-background)] p-1" aria-label="Canal de atención">
+              {([['all', 'Todos'], ['whatsapp', 'WhatsApp'], ['office', 'Oficina'], ['paper', 'Papel'], ['phone', 'Llamadas'], ['sms', 'SMS']] as Array<[ChannelFilter, string]>).map(([value, label]) => <button key={value} type="button" aria-pressed={channelFilter === value} onClick={() => setChannelFilter(value)} className={`shrink-0 rounded px-2 py-1.5 text-xs font-semibold ${channelFilter === value ? 'bg-[var(--color-surface)] text-[var(--color-primary)] shadow-sm' : 'text-[var(--color-text-muted)]'}`}>{label}</button>)}
             </div>
             <div className="relative mt-4">
               <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-[var(--color-text-muted)]" />
@@ -220,7 +220,7 @@ export const MobileLayout: React.FC<Props> = (props) => {
                 <p className="truncate text-sm font-semibold text-[var(--color-text)]">
                   {active.client?.name || 'Cliente sin nombre'}
                 </p>
-                <p className="text-xs text-[var(--color-text-muted)]">{active.channel === 'office' ? (active.metadata?.source === 'paper' ? 'Formulario escrito' : 'Oficina') : 'WhatsApp'}</p>
+                <p className="text-xs text-[var(--color-text-muted)]">{channelLabel(active)}</p>
               </div>
             </button>
             <button
@@ -274,7 +274,7 @@ export const MobileLayout: React.FC<Props> = (props) => {
 
           <div className="border-t border-[var(--color-border)] bg-[var(--color-surface)] p-3 pb-[calc(12px+env(safe-area-inset-bottom))]">
             <div className="flex items-end gap-2">
-              {active.channel !== 'office' && (
+              {!isManualConversation(active) && (
               <label className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-[var(--color-primary)] hover:bg-[var(--color-primary-soft)]">
                 <Paperclip className="h-5 w-5" />
                 <input
@@ -295,23 +295,23 @@ export const MobileLayout: React.FC<Props> = (props) => {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    if (active.channel === 'office') onInternalNote(text); else onSend();
+                    if (isManualConversation(active)) onInternalNote(text); else onSend();
                   }
                 }}
                 rows={1}
-                placeholder={active.channel === 'office' ? 'Nota interna del equipo' : 'Escribe un mensaje'}
+                placeholder={isManualConversation(active) ? 'Nota interna del equipo' : 'Escribe un mensaje'}
                 className="max-h-28 min-h-11 flex-1 resize-none rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-3 text-sm text-[var(--color-text)] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-primary)]"
               />
               <button
                 type="button"
-                onClick={active.channel === 'office' ? () => onInternalNote(text) : onSend}
-                aria-label={active.channel === 'office' ? 'Guardar nota' : 'Enviar mensaje'}
+                onClick={isManualConversation(active) ? () => onInternalNote(text) : onSend}
+                aria-label={isManualConversation(active) ? 'Guardar nota' : 'Enviar mensaje'}
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)] text-white"
               >
                 <Send className="h-5 w-5" />
               </button>
             </div>
-            {active.channel === 'office' && <p className="mt-2 text-xs text-[var(--color-text-muted)]">No se enviará por WhatsApp.</p>}
+            {isManualConversation(active) && <p className="mt-2 text-xs text-[var(--color-text-muted)]">Nota interna: no se envía al usuario.</p>}
           </div>
         </div>
       )}
@@ -341,13 +341,13 @@ export const MobileLayout: React.FC<Props> = (props) => {
             {team.length > 0 && <label className="mt-5 block text-sm font-semibold text-[var(--color-text)]">Responsable<select value={active.assigned_to ?? ''} onChange={(event) => onAssign(event.target.value ? Number(event.target.value) : null)} className="mt-2 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-3 text-[var(--color-text)]"><option value="">Sin asignar</option>{team.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}</select></label>}
 
             <div className="mt-5 grid grid-cols-2 gap-3">
-              {active.channel !== 'office' && <button
+              {!isManualConversation(active) && <button
                 onClick={onRequestClose}
                 className="rounded-[var(--radius-button)] border border-primary-border bg-[var(--color-primary-soft)] p-3 text-sm font-semibold text-[var(--color-primary)]"
               >
                 Solicitar cierre
               </button>}
-              {active.channel !== 'office' && <button
+              {!isManualConversation(active) && <button
                 onClick={() => onChangeStatus('transferred')}
                 className="rounded-[var(--radius-button)] border border-pending bg-[color:var(--color-warning)]/10 p-3 text-sm font-semibold text-[var(--color-warning)]"
               >

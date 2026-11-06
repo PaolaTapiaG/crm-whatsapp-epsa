@@ -44,7 +44,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
         <div className="mb-4 flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-black tracking-tight text-[var(--color-text)]">Conversaciones</h1>
-            <p className="mt-1 text-sm text-[var(--color-text-muted)]">WhatsApp y oficina en una misma bandeja.</p>
+            <p className="mt-1 text-sm text-[var(--color-text-muted)]">WhatsApp, oficina, papel, llamadas y SMS en una bandeja.</p>
           </div>
           <span className="rounded-full bg-[var(--color-primary-soft)] px-3 py-1 text-xs font-bold text-[var(--color-primary)]">
             {counts.all}
@@ -61,9 +61,9 @@ export const ConversationList: React.FC<ConversationListProps> = ({
           />
         </div>
 
-        <div className="mt-3 flex gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-background)] p-1" aria-label="Canal de atención">
-          {([['all', 'Todos'], ['whatsapp', 'WhatsApp'], ['office', 'Oficina']] as Array<[ChannelFilter, string]>).map(([value, label]) => (
-            <button key={value} type="button" onClick={() => setChannelFilter(value)} aria-pressed={channelFilter === value} className={`min-w-0 flex-1 rounded px-2 py-1.5 text-xs font-semibold ${channelFilter === value ? 'bg-[var(--color-surface)] text-[var(--color-primary)] shadow-sm' : 'text-[var(--color-text-muted)]'}`}>{label}</button>
+        <div className="mt-3 flex gap-1 overflow-x-auto rounded-md border border-[var(--color-border)] bg-[var(--color-background)] p-1" aria-label="Canal de atención">
+          {([['all', 'Todos'], ['whatsapp', 'WhatsApp'], ['office', 'Oficina'], ['paper', 'Papel'], ['phone', 'Llamadas'], ['sms', 'SMS']] as Array<[ChannelFilter, string]>).map(([value, label]) => (
+            <button key={value} type="button" onClick={() => setChannelFilter(value)} aria-pressed={channelFilter === value} className={`shrink-0 rounded px-2 py-1.5 text-xs font-semibold ${channelFilter === value ? 'bg-[var(--color-surface)] text-[var(--color-primary)] shadow-sm' : 'text-[var(--color-text-muted)]'}`}>{label}</button>
           ))}
         </div>
 

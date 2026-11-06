@@ -30,9 +30,16 @@ export const api = {
     client_id?: number;
     name?: string;
     phone?: string;
-    source: 'office' | 'paper';
+    source: 'office' | 'paper' | 'phone' | 'sms';
     paper_reference?: string;
+    source_reference?: string;
+    claim_number?: string;
     received_at?: string;
+    service_code?: string;
+    address?: string;
+    case_type: 'consulta' | 'solicitud' | 'reclamo' | 'emergencia';
+    response_due_at?: string;
+    contact_method: 'office' | 'phone' | 'sms' | 'whatsapp';
     subject: string;
     description: string;
     category: string;

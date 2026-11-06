@@ -18,6 +18,7 @@ import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
 import { api } from '../services/api';
 import { notifyOperator, requestNotificationPermission, unlockOperatorAudio } from '../lib/notifyOperator';
 import { readStored, writeStored } from '../lib/storage';
+import { conversationChannel, isManualConversation } from '../lib/format';
 import { useAuth } from '../context/AuthContext';
 import {
   conversationActivityTime,
@@ -213,7 +214,7 @@ const OperatorChatPage: React.FC = () => {
       .filter((conversation) => {
         const haystack = `${conversation.client?.name || ''} ${
           conversation.client?.whatsapp_number || ''
-        } ${conversation.metadata?.group_name || ''} ${conversation.metadata?.ticket_number || ''}`.toLowerCase();
+        } ${conversation.client?.phone || ''} ${conversation.metadata?.group_name || ''} ${conversation.metadata?.ticket_number || ''} ${conversation.metadata?.service_code || ''}`.toLowerCase();
         const matchesQuery = !normalized || haystack.includes(normalized);
         const matchesFilter =
           filter === 'all' ||
@@ -224,7 +225,7 @@ const OperatorChatPage: React.FC = () => {
           (filter === 'active' && conversation.status === 'active') ||
           (filter === 'closed' &&
             ['closed', 'finished'].includes(conversation.status));
-        const matchesChannel = channelFilter === 'all' || conversation.channel === channelFilter;
+        const matchesChannel = channelFilter === 'all' || conversationChannel(conversation) === channelFilter;
         return matchesQuery && matchesFilter && matchesChannel;
       })
       .sort(
@@ -243,7 +244,7 @@ const OperatorChatPage: React.FC = () => {
 
   const sendText = async (content = text) => {
     if (!active || !content.trim()) return;
-    if (active.channel === 'office') return;
+    if (isManualConversation(active)) return;
     try {
       await api.sendOperatorMessage({
         to: active.client?.whatsapp_number || '',
@@ -259,7 +260,7 @@ const OperatorChatPage: React.FC = () => {
 
   const sendAttachment = async (file: File) => {
     if (!active) return;
-    if (active.channel === 'office') return;
+    if (isManualConversation(active)) return;
     if (file.size > 8 * 1024 * 1024) {
       setNotice('El archivo debe pesar menos de 8 MB.');
       return;
@@ -280,7 +281,7 @@ const OperatorChatPage: React.FC = () => {
 
   const sendInvoice = async () => {
     if (!active || !invoice.bill_number) return;
-    if (active.channel === 'office') return;
+    if (isManualConversation(active)) return;
     const calculatedAmount = [
       invoice.basic_rate,
       invoice.tier_11_15,
@@ -320,7 +321,7 @@ const OperatorChatPage: React.FC = () => {
 
   const requestClose = async () => {
     if (!active) return;
-    if (active.channel === 'office') return;
+    if (isManualConversation(active)) return;
     try {
       await api.requestConversationClose(active.id);
       setActive((current) =>
@@ -575,13 +576,13 @@ const OperatorChatPage: React.FC = () => {
                       />
 
                       <div className="relative">
-                        {active.channel === 'office' ? (
+                        {isManualConversation(active) ? (
                           <div className="border-t border-[var(--color-border)] bg-[var(--color-surface)] p-3">
                             <div className="flex gap-2">
                               <input value={text} onChange={(event) => setText(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void saveInternalNote(text); }} placeholder="Nota interna sobre esta atención" className="min-w-0 flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-text)]" />
                               <button type="button" disabled={!text.trim()} onClick={() => void saveInternalNote(text)} className="rounded-md bg-[var(--color-primary)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">Guardar nota</button>
                             </div>
-                            <p className="mt-2 text-xs text-[var(--color-text-muted)]">Atención presencial: las notas quedan en el expediente; no se envían por WhatsApp.</p>
+                            <p className="mt-2 text-xs text-[var(--color-text-muted)]">Nota interna del expediente: no se envía al usuario.</p>
                           </div>
                         ) : <ChatComposer
                           text={text}
@@ -601,7 +602,7 @@ const OperatorChatPage: React.FC = () => {
                           recording={recording}
                         />}
 
-                        {active.channel !== 'office' && attachmentsOpen && (
+                        {!isManualConversation(active) && attachmentsOpen && (
                           <AttachmentsPopover
                             action={attachmentAction}
                             setAction={setAttachmentAction}

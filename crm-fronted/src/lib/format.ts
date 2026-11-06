@@ -1,3 +1,5 @@
+import type { Conversation } from './constants';
+
 export const initials = (name?: string | null): string =>
   (name || 'C')
     .split(' ')
@@ -24,3 +26,16 @@ export const phoneHref = (value?: string | null): string | undefined => {
   const international = (value || '').trim().startsWith('+') || digits.startsWith('591');
   return `tel:${international ? '+' : ''}${digits}`;
 };
+
+export const conversationChannel = (conversation: Conversation): string =>
+  conversation.channel === 'office' && conversation.metadata?.source === 'paper'
+    ? 'paper'
+    : conversation.channel || 'whatsapp';
+
+export const isManualConversation = (conversation: Conversation): boolean =>
+  conversationChannel(conversation) !== 'whatsapp';
+
+export const channelLabel = (conversation: Conversation): string => ({
+  whatsapp: 'WhatsApp', office: 'Oficina', paper: 'Formulario escrito',
+  phone: 'Llamada', sms: 'SMS',
+}[conversationChannel(conversation)] || 'Otro canal');

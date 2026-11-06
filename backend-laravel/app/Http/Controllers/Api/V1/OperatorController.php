@@ -29,7 +29,7 @@ class OperatorController extends Controller
         $conversations = Conversation::with(['client', 'lastMessage'])
             ->withCount(['tickets as open_tickets_count' => fn ($query) => $query->whereIn('status', ['open', 'assigned', 'in_progress'])])
             ->withMax(['messages as latest_inbound_id' => fn ($query) => $query->where('sender', 'user')], 'id')
-            ->where(fn ($query) => $query->whereIn('id', $latestWhatsAppIds)->orWhere('channel', 'office'))
+            ->where(fn ($query) => $query->whereIn('id', $latestWhatsAppIds)->orWhere('channel', '!=', 'whatsapp'))
             ->latest('updated_at')
             ->when(Schema::hasColumn('conversations', 'assigned_to'), fn ($query) => $query->with('assignedUser:id,name'))
             ->get();

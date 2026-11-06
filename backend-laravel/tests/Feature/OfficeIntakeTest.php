@@ -36,6 +36,8 @@ class OfficeIntakeTest extends TestCase
         $payload = [
             'name' => 'Socia sin teléfono',
             'source' => 'office',
+            'case_type' => 'consulta',
+            'contact_method' => 'office',
             'subject' => 'Consulta de horarios',
             'description' => 'Solicita el horario en oficina.',
             'category' => 'consulta',
@@ -65,6 +67,8 @@ class OfficeIntakeTest extends TestCase
         $response = $this->withToken($token)->postJson('/api/v1/operator/intake', [
             'client_id' => $client->id,
             'source' => 'paper',
+            'case_type' => 'solicitud',
+            'contact_method' => 'office',
             'paper_reference' => 'FORM-12',
             'received_at' => now()->subDay()->toIso8601String(),
             'subject' => 'Reporte escrito',
@@ -73,6 +77,7 @@ class OfficeIntakeTest extends TestCase
             'priority' => 'high',
         ])->assertCreated();
         $officeId = $response->json('data.conversation.id');
+        $this->assertSame('paper', $response->json('data.conversation.channel'));
         $this->assertSame($client->id, $response->json('data.conversation.client.id'));
         $this->assertSame('FORM-12', Conversation::find($officeId)->metadata['paper_reference']);
         $inbox = $this->withToken($token)->getJson('/api/v1/operator/pending')->assertOk();
@@ -105,6 +110,8 @@ class OfficeIntakeTest extends TestCase
             'name' => 'Socia de oficina',
             'phone' => '76123456',
             'source' => 'office',
+            'case_type' => 'consulta',
+            'contact_method' => 'office',
             'subject' => 'Consulta',
             'description' => 'Pregunta por el horario.',
             'category' => 'consulta',
@@ -113,5 +120,51 @@ class OfficeIntakeTest extends TestCase
 
         $result = $this->withToken($token)->getJson('/api/v1/clients?search=76123456')->assertOk();
         $this->assertSame('Socia de oficina', $result->json('data.data.0.name'));
+    }
+
+    public function test_call_and_sms_entries_keep_distinct_channels_and_references(): void
+    {
+        $token = $this->secretaryToken();
+        foreach (['phone', 'sms'] as $source) {
+            $response = $this->withToken($token)->postJson('/api/v1/operator/intake', [
+                'name' => 'Socio ' . $source,
+                'phone' => '76123456',
+                'source' => $source,
+                'source_reference' => 'REG-123',
+                'case_type' => 'consulta',
+                'contact_method' => $source,
+                'subject' => 'Horario',
+                'description' => 'Consulta de horario por ' . $source,
+                'category' => 'consulta',
+                'priority' => 'normal',
+            ])->assertCreated();
+            $this->assertSame($source, $response->json('data.conversation.channel'));
+            $this->assertSame('REG-123', $response->json('data.ticket.metadata.source_reference'));
+        }
+        $inbox = $this->withToken($token)->getJson('/api/v1/operator/pending')->assertOk();
+        $this->assertContains('phone', array_column($inbox->json('data'), 'channel'));
+        $this->assertContains('sms', array_column($inbox->json('data'), 'channel'));
+    }
+
+    public function test_emergency_requires_a_tentative_response_date(): void
+    {
+        $token = $this->secretaryToken();
+        $payload = [
+            'name' => 'Socio de emergencia',
+            'source' => 'phone',
+            'phone' => '76123456',
+            'case_type' => 'emergencia',
+            'contact_method' => 'phone',
+            'subject' => 'Sin agua',
+            'description' => 'Reporta falta de agua.',
+            'category' => 'falta_agua',
+            'priority' => 'urgent',
+        ];
+        $this->withToken($token)->postJson('/api/v1/operator/intake', $payload)
+            ->assertUnprocessable()->assertJsonValidationErrors('response_due_at');
+        $response = $this->withToken($token)->postJson('/api/v1/operator/intake', $payload + [
+            'response_due_at' => now()->addHours(12)->toIso8601String(),
+        ])->assertCreated();
+        $this->assertSame('emergencia', $response->json('data.ticket.metadata.case_type'));
     }
 }

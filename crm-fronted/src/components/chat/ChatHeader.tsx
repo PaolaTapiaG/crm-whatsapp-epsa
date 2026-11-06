@@ -1,7 +1,7 @@
 import React from 'react';
 import { CheckCircle2, Phone, Search, UserCheck } from 'lucide-react';
 import type { Conversation } from '../../lib/constants';
-import { phoneHref } from '../../lib/format';
+import { channelLabel, isManualConversation, phoneHref } from '../../lib/format';
 
 interface Props {
   conversation: Conversation;
@@ -37,10 +37,10 @@ export const ChatHeader: React.FC<Props> = ({
           </h2>
           <div className="mt-1 flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
             <span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--color-success)]/100" />
-            <span>{conversation.channel === 'office' ? (conversation.metadata?.source === 'paper' ? 'Formulario escrito' : 'Oficina') : 'WhatsApp'}</span>
+            <span>{channelLabel(conversation)}</span>
             <span className="hidden xl:inline">·</span>
             <span className="hidden whitespace-nowrap xl:inline">{conversation.client?.phone || conversation.client?.whatsapp_number || 'Sin teléfono'}</span>
-            {conversation.channel !== 'office' && <span className="hidden whitespace-nowrap rounded-full bg-[var(--color-primary-soft)] px-2 py-0.5 font-semibold text-[var(--color-primary)] sm:inline">
+            {!isManualConversation(conversation) && <span className="hidden whitespace-nowrap rounded-full bg-[var(--color-primary-soft)] px-2 py-0.5 font-semibold text-[var(--color-primary)] sm:inline">
               {conversation.ai_mode || 'AI_ASSIST'}
             </span>}
           </div>
@@ -58,7 +58,7 @@ export const ChatHeader: React.FC<Props> = ({
         <a href={phoneHref(conversation.client?.phone || conversation.client?.whatsapp_number)} title="Llamar por teléfono" aria-disabled={!conversation.client?.phone && !conversation.client?.whatsapp_number} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] p-2 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] aria-disabled:pointer-events-none aria-disabled:opacity-40">
           <Phone className="h-4 w-4" />
         </a>
-        {conversation.channel !== 'office' && <button type="button" onClick={onRequestClose} title="Solicitar cierre" className="hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] p-2 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] sm:block">
+        {!isManualConversation(conversation) && <button type="button" onClick={onRequestClose} title="Solicitar cierre" className="hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] p-2 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] sm:block">
           <CheckCircle2 className="h-4 w-4" />
         </button>}
       </div>

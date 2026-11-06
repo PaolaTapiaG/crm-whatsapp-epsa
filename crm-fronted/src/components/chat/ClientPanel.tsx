@@ -4,7 +4,7 @@ import { Bot, Mail, MapPin, MessageCircle, Phone, ShieldCheck, Ticket, X } from 
 import type { Conversation } from '../../lib/constants';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
-import { phoneHref } from '../../lib/format';
+import { channelLabel, isManualConversation, phoneHref } from '../../lib/format';
 
 interface Props {
   conversation: Conversation;
@@ -46,7 +46,7 @@ export const ClientPanel: React.FC<Props> = ({
               <p className="text-sm font-semibold text-[var(--color-text)]">
                 {conversation.client?.name || 'Cliente sin nombre'}
               </p>
-              <p className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">{conversation.channel === 'office' ? 'Atención presencial' : 'WhatsApp'}</p>
+              <p className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">{channelLabel(conversation)}</p>
             </div>
           </div>
           <button
@@ -64,11 +64,17 @@ export const ClientPanel: React.FC<Props> = ({
             <a href={phoneHref(conversation.client.phone || conversation.client.whatsapp_number)} className="flex flex-col items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-2 py-3 text-xs font-semibold text-[var(--color-text)] hover:text-[var(--color-primary)]"><Phone className="h-4 w-4" />Llamar</a>
           </div> : <p className="text-xs text-[var(--color-text-muted)]">Sin teléfono registrado. La respuesta se entregará por ventanilla o por el canal que acuerde la EPSA.</p>}
 
-          {conversation.channel === 'office' && <div className="rounded-[var(--radius-button)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3 text-sm">
+          {isManualConversation(conversation) && <div className="rounded-[var(--radius-button)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3 text-sm">
             <h3 className="font-semibold">Registro de atención</h3>
             <p className="mt-2">Folio: <span className="font-medium">{conversation.metadata?.ticket_number || 'Pendiente'}</span></p>
-            <p className="mt-1 text-[var(--color-text-muted)]">Origen: {conversation.metadata?.source === 'paper' ? 'Formulario escrito' : 'Atención en oficina'}</p>
+            <p className="mt-1 text-[var(--color-text-muted)]">Origen: {channelLabel(conversation)}</p>
             {conversation.metadata?.paper_reference && <p className="mt-1 text-[var(--color-text-muted)]">Referencia: {conversation.metadata.paper_reference}</p>}
+            {conversation.metadata?.source_reference && <p className="mt-1 text-[var(--color-text-muted)]">Referencia: {conversation.metadata.source_reference}</p>}
+            {conversation.metadata?.claim_number && <p className="mt-1 text-[var(--color-text-muted)]">N.º ODECO: {conversation.metadata.claim_number}</p>}
+            {conversation.metadata?.service_code && <p className="mt-1 text-[var(--color-text-muted)]">Código de socio: {conversation.metadata.service_code}</p>}
+            {conversation.metadata?.case_type && <p className="mt-1 text-[var(--color-text-muted)]">Clase: {conversation.metadata.case_type}</p>}
+            {conversation.metadata?.response_due_at && <p className="mt-1 text-[var(--color-text-muted)]">Respuesta prevista: {new Date(conversation.metadata.response_due_at).toLocaleString('es-BO')}</p>}
+            {conversation.metadata?.contact_method && <p className="mt-1 text-[var(--color-text-muted)]">Respuesta por: {conversation.metadata.contact_method}</p>}
           </div>}
 
           <div className="rounded-[var(--radius-button)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
@@ -91,7 +97,7 @@ export const ClientPanel: React.FC<Props> = ({
             </div>
           </div>
 
-          {conversation.channel !== 'office' && <div className="rounded-[var(--radius-button)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
+          {!isManualConversation(conversation) && <div className="rounded-[var(--radius-button)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
             <div className="mb-2 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-[var(--color-text)]">Modo de atención</h3>
               <span className="rounded-full bg-[var(--color-primary-soft)] px-2 py-1 text-[11px] font-medium text-[var(--color-primary)]">
@@ -120,7 +126,7 @@ export const ClientPanel: React.FC<Props> = ({
             <Link to="/admin/tickets" className="text-sm font-semibold text-[var(--color-primary)]">{conversation.open_tickets_count || 0} abiertos · Ver tickets</Link>
           </div>
 
-          {conversation.channel !== 'office' && <div className="rounded-[var(--radius-button)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
+          {!isManualConversation(conversation) && <div className="rounded-[var(--radius-button)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-semibold text-[var(--color-text)]">Cierre de atención</h3>
